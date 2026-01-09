@@ -1,4 +1,4 @@
-//! Complex number support for sap expressions.
+//! Complex number support for dew expressions.
 //!
 //! Provides complex number types and operations for signal processing,
 //! 2D rotations, and general complex arithmetic.

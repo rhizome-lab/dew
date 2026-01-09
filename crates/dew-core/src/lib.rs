@@ -1,4 +1,4 @@
-//! sap-core: minimal expression language.
+//! dew-core: minimal expression language.
 //!
 //! A simple expression parser that compiles string expressions into evaluable ASTs.
 //! Variables and functions are provided by the caller - nothing is hardcoded.

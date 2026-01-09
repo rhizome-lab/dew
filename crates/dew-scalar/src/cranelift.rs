@@ -78,92 +78,92 @@ struct MathSymbol {
 fn math_symbols() -> Vec<MathSymbol> {
     vec![
         MathSymbol {
-            name: "sap_sin",
+            name: "dew_sin",
             ptr: math_sin as *const u8,
             arity: 1,
         },
         MathSymbol {
-            name: "sap_cos",
+            name: "dew_cos",
             ptr: math_cos as *const u8,
             arity: 1,
         },
         MathSymbol {
-            name: "sap_tan",
+            name: "dew_tan",
             ptr: math_tan as *const u8,
             arity: 1,
         },
         MathSymbol {
-            name: "sap_asin",
+            name: "dew_asin",
             ptr: math_asin as *const u8,
             arity: 1,
         },
         MathSymbol {
-            name: "sap_acos",
+            name: "dew_acos",
             ptr: math_acos as *const u8,
             arity: 1,
         },
         MathSymbol {
-            name: "sap_atan",
+            name: "dew_atan",
             ptr: math_atan as *const u8,
             arity: 1,
         },
         MathSymbol {
-            name: "sap_atan2",
+            name: "dew_atan2",
             ptr: math_atan2 as *const u8,
             arity: 2,
         },
         MathSymbol {
-            name: "sap_sinh",
+            name: "dew_sinh",
             ptr: math_sinh as *const u8,
             arity: 1,
         },
         MathSymbol {
-            name: "sap_cosh",
+            name: "dew_cosh",
             ptr: math_cosh as *const u8,
             arity: 1,
         },
         MathSymbol {
-            name: "sap_tanh",
+            name: "dew_tanh",
             ptr: math_tanh as *const u8,
             arity: 1,
         },
         MathSymbol {
-            name: "sap_exp",
+            name: "dew_exp",
             ptr: math_exp as *const u8,
             arity: 1,
         },
         MathSymbol {
-            name: "sap_exp2",
+            name: "dew_exp2",
             ptr: math_exp2 as *const u8,
             arity: 1,
         },
         MathSymbol {
-            name: "sap_ln",
+            name: "dew_ln",
             ptr: math_ln as *const u8,
             arity: 1,
         },
         MathSymbol {
-            name: "sap_log2",
+            name: "dew_log2",
             ptr: math_log2 as *const u8,
             arity: 1,
         },
         MathSymbol {
-            name: "sap_log10",
+            name: "dew_log10",
             ptr: math_log10 as *const u8,
             arity: 1,
         },
         MathSymbol {
-            name: "sap_pow",
+            name: "dew_pow",
             ptr: math_pow as *const u8,
             arity: 2,
         },
         MathSymbol {
-            name: "sap_sqrt",
+            name: "dew_sqrt",
             ptr: math_sqrt as *const u8,
             arity: 1,
         },
         MathSymbol {
-            name: "sap_inversesqrt",
+            name: "dew_inversesqrt",
             ptr: math_inversesqrt as *const u8,
             arity: 1,
         },
@@ -389,7 +389,7 @@ fn compile_ast(
                 BinOp::Mul => builder.ins().fmul(l, r),
                 BinOp::Div => builder.ins().fdiv(l, r),
                 BinOp::Pow => {
-                    let func_ref = math.funcs.get("sap_pow").ok_or("pow not available")?;
+                    let func_ref = math.funcs.get("dew_pow").ok_or("pow not available")?;
                     let call = builder.ins().call(*func_ref, &[l, r]);
                     builder.inst_results(call)[0]
                 }
@@ -432,9 +432,9 @@ fn compile_function(
         "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "sinh" | "cosh" | "tanh" | "exp"
         | "exp2" | "ln" | "log" | "log2" | "log10" | "sqrt" | "inversesqrt" => {
             let sym_name = if name == "log" || name == "ln" {
-                "sap_ln".to_string()
+                "dew_ln".to_string()
             } else {
-                format!("sap_{}", name)
+                format!("dew_{}", name)
             };
             let func_ref = math
                 .funcs
@@ -444,12 +444,12 @@ fn compile_function(
             builder.inst_results(call)[0]
         }
         "atan2" => {
-            let func_ref = math.funcs.get("sap_atan2").ok_or("atan2 not available")?;
+            let func_ref = math.funcs.get("dew_atan2").ok_or("atan2 not available")?;
             let call = builder.ins().call(*func_ref, &[args[0], args[1]]);
             builder.inst_results(call)[0]
         }
         "pow" => {
-            let func_ref = math.funcs.get("sap_pow").ok_or("pow not available")?;
+            let func_ref = math.funcs.get("dew_pow").ok_or("pow not available")?;
             let call = builder.ins().call(*func_ref, &[args[0], args[1]]);
             builder.inst_results(call)[0]
         }

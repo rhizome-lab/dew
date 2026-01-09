@@ -1,4 +1,4 @@
-//! Standard scalar function library for sap expressions.
+//! Standard scalar function library for dew expressions.
 //!
 //! Provides common math functions (sin, cos, sqrt, etc.) and constants (pi, e)
 //! with a generic numeric type `T: Float`.

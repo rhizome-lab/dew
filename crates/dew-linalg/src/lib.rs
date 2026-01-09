@@ -1,6 +1,6 @@
-//! Linear algebra types and operations for sap expressions.
+//! Linear algebra types and operations for dew expressions.
 //!
-//! This crate provides vector and matrix types that work with sap-core's AST.
+//! This crate provides vector and matrix types that work with dew-core's AST.
 //! Types propagate during evaluation/emission - no separate type inference pass.
 //!
 //! # Features
@@ -153,7 +153,7 @@ pub trait LinalgValue<T: Float>: Clone + PartialEq + Sized + std::fmt::Debug {
 
 /// A linalg value, generic over numeric type.
 ///
-/// This is the default concrete type for standalone use of sap-linalg.
+/// This is the default concrete type for standalone use of dew-linalg.
 /// For composing with other domain crates, implement `LinalgValue<T>` for
 /// your own combined enum.
 #[derive(Debug, Clone, PartialEq)]
