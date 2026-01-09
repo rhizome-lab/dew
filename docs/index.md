@@ -15,7 +15,7 @@ hero:
 
 features:
   - title: Domain Crates
-    details: dew-scalar for math functions, dew-linalg for vectors and matrices
+    details: Scalar math, linear algebra, complex numbers, quaternions
   - title: Multiple Backends
     details: WGSL (GPU shaders), Cranelift (JIT), Lua (scripting)
   - title: Generic Numeric Types

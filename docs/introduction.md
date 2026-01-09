@@ -7,14 +7,18 @@ Part of the [Rhizome](https://rhizome-lab.github.io) ecosystem.
 ## Architecture
 
 ```
-dew-core           # Syntax only: AST, parsing
+dew-core               # Syntax only: AST, parsing
     |
     +-- dew-scalar     # Scalar domain: f32/f64 math functions
-    |                  # Backends: wgsl, lua, cranelift
     |
-    +-- dew-linalg     # Linalg domain: Vec2, Vec3, Mat2, Mat3, etc.
-                       # Backends: wgsl, lua, cranelift
+    +-- dew-linalg     # Linalg domain: Vec2, Vec3, Mat2, Mat3
+    |
+    +-- dew-complex    # Complex numbers: [re, im]
+    |
+    +-- dew-quaternion # Quaternions: [x, y, z, w], Vec3
 ```
+
+All domain crates have WGSL, Lua, and Cranelift backends (feature flags).
 
 **Core = syntax only, domains = semantics.** Each domain crate has its own:
 - Value types and type system
@@ -63,3 +67,5 @@ rhizome-dew-scalar = { version = "0.1", features = ["wgsl", "lua", "cranelift"] 
 | `rhizome-dew-core` | Core AST and parsing |
 | `rhizome-dew-scalar` | Scalar math: sin, cos, exp, lerp, etc. |
 | `rhizome-dew-linalg` | Linear algebra: Vec2-4, Mat2-4, dot, cross, etc. |
+| `rhizome-dew-complex` | Complex numbers: exp, log, polar, conjugate, etc. |
+| `rhizome-dew-quaternion` | Quaternions: rotation, slerp, axis-angle, etc. |
