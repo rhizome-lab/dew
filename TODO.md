@@ -16,13 +16,15 @@ Each domain crate handles its own types during eval/emit.
 
 ### Backends (now self-contained in domain crates)
 
-- [x] sap-scalar: WGSL, Lua, Cranelift backends (self-contained)
-- [x] sap-linalg: WGSL, Lua, Cranelift backends (self-contained)
+- [x] dew-scalar: WGSL, Lua, Cranelift backends (self-contained)
+- [x] dew-linalg: WGSL, Lua, Cranelift backends (self-contained)
+- [x] dew-complex: WGSL, Lua, Cranelift backends (self-contained)
+- [x] dew-quaternion: WGSL, Lua, Cranelift backends (self-contained)
 
-Note: Old standalone backend crates (sap-wgsl, sap-lua, sap-cranelift) removed.
+Note: Old standalone backend crates removed.
 Each domain crate now has self-contained backends behind feature flags.
 
-### Standard Library (sap-scalar)
+### Standard Library (dew-scalar)
 
 - [x] Generic over `T: Float` (works with f32, f64)
 - [x] Own `ScalarFn<T>` trait and `FunctionRegistry<T>`
@@ -43,10 +45,10 @@ Each domain crate now has self-contained backends behind feature flags.
 
 ### New Domain Crates
 
-- Complex numbers (2D rotations)
-- Quaternions (3D rotations)
-- Dual numbers (autodiff)
-- Rotors/spinors (geometric algebra)
+- [x] Complex numbers (2D rotations) - dew-complex
+- [x] Quaternions (3D rotations) - dew-quaternion
+- [ ] Dual numbers (autodiff)
+- [ ] Rotors/spinors (geometric algebra)
 
 ### Nice to Have (maybe)
 
@@ -61,9 +63,11 @@ Each domain crate now has self-contained backends behind feature flags.
 Problem: What if a user wants to use multiple domain crates together? E.g., linalg + rotors in the same expression.
 
 Current state:
-- sap-scalar: `T: Float` scalars
-- sap-linalg: `Value<T>` enum (Scalar, Vec2, Vec3, Vec4, Mat2, Mat3, Mat4)
-- Future crates might add: Complex, Quaternion, Rotor, etc.
+- dew-scalar: `T: Float` scalars
+- dew-linalg: `Value<T>` enum (Scalar, Vec2, Vec3, Vec4, Mat2, Mat3, Mat4)
+- dew-complex: `Value<T>` enum (Scalar, Complex)
+- dew-quaternion: `Value<T>` enum (Scalar, Vec3, Quaternion)
+- Future crates might add: Rotor, DualNumber, etc.
 
 Each has its own `FunctionRegistry<T>` and `eval()` function.
 
@@ -81,9 +85,9 @@ Options to investigate:
    }
    ```
 3. **Generic over value type**: Each crate is generic over the value abstraction, users compose by providing their own combined type
-4. **Extension trait pattern**: Shared base Value in sap-core, domain crates add methods via traits
-   - **Problem**: Value must have ALL variants in sap-core upfront. Can't add new variants from external crates.
-   - Only viable if sap-core is a monolith knowing all domains. Defeats modularity. **Not recommended.**
+4. **Extension trait pattern**: Shared base Value in dew-core, domain crates add methods via traits
+   - **Problem**: Value must have ALL variants in dew-core upfront. Can't add new variants from external crates.
+   - Only viable if dew-core is a monolith knowing all domains. Defeats modularity. **Not recommended.**
 
 Trade-offs:
 
@@ -129,7 +133,7 @@ Note: Phase 2 is low priority until we have 2+ domain crates that people want to
 
 ### External Backend Support
 
-How to create `sap-linalg-glsl` without modifying sap-linalg.
+How to create `dew-linalg-glsl` without modifying dew-linalg.
 
 #### Pattern: Backends Don't Need Value, Only Type
 
@@ -145,17 +149,17 @@ pub fn emit_wgsl(ast: &Ast, var_types: &HashMap<String, Type>) -> Result<WgslExp
 
 #### Creating an External Backend
 
-Example: `sap-linalg-glsl` crate
+Example: `dew-linalg-glsl` crate
 
 ```toml
 [dependencies]
-rhizome-sap-core = "..."   # For Ast
-rhizome-sap-linalg = "..." # For Type enum
+rhizome-dew-core = "..."   # For Ast
+rhizome-dew-linalg = "..." # For Type enum
 ```
 
 ```rust
-use rhizome_sap_core::{Ast, BinOp, UnaryOp};
-use rhizome_sap_linalg::Type;
+use rhizome_dew_core::{Ast, BinOp, UnaryOp};
+use rhizome_dew_linalg::Type;
 
 pub fn emit_glsl(ast: &Ast, var_types: &HashMap<String, Type>) -> Result<GlslExpr, GlslError> {
     match ast {
