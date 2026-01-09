@@ -1,16 +1,16 @@
-# sap-linalg
+# dew-linalg
 
-Linear algebra types and operations for sap expressions.
+Linear algebra types and operations for dew expressions.
 
 ## Installation
 
 ```toml
 [dependencies]
-rhizome-sap-core = "0.1"
-rhizome-sap-linalg = "0.1"
+rhizome-dew-core = "0.1"
+rhizome-dew-linalg = "0.1"
 
 # Features
-rhizome-sap-linalg = { version = "0.1", features = ["3d", "4d", "wgsl"] }
+rhizome-dew-linalg = { version = "0.1", features = ["3d", "4d", "wgsl"] }
 ```
 
 ### Features
@@ -26,8 +26,8 @@ rhizome-sap-linalg = { version = "0.1", features = ["3d", "4d", "wgsl"] }
 ## Basic Usage
 
 ```rust
-use rhizome_sap_core::Expr;
-use rhizome_sap_linalg::{Value, eval, linalg_registry};
+use rhizome_dew_core::Expr;
+use rhizome_dew_linalg::{Value, eval, linalg_registry};
 use std::collections::HashMap;
 
 // Parse an expression

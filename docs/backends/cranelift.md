@@ -1,21 +1,21 @@
 # Cranelift Backend
 
-JIT compile sap expressions to native code via Cranelift.
+JIT compile dew expressions to native code via Cranelift.
 
 ## Enable
 
 ```toml
-rhizome-sap-scalar = { version = "0.1", features = ["cranelift"] }
-rhizome-sap-linalg = { version = "0.1", features = ["cranelift"] }
+rhizome-dew-scalar = { version = "0.1", features = ["cranelift"] }
+rhizome-dew-linalg = { version = "0.1", features = ["cranelift"] }
 ```
 
-## sap-scalar
+## dew-scalar
 
 ### Compile and Execute
 
 ```rust
-use rhizome_sap_core::Expr;
-use rhizome_sap_scalar::cranelift::ScalarJit;
+use rhizome_dew_core::Expr;
+use rhizome_dew_scalar::cranelift::ScalarJit;
 
 // Create JIT compiler
 let jit = ScalarJit::new().unwrap();
@@ -42,14 +42,14 @@ for i in 0..1000 {
 }
 ```
 
-## sap-linalg
+## dew-linalg
 
 ### Compile with Types
 
 ```rust
-use rhizome_sap_core::Expr;
-use rhizome_sap_linalg::cranelift::LinalgJit;
-use rhizome_sap_linalg::Type;
+use rhizome_dew_core::Expr;
+use rhizome_dew_linalg::cranelift::LinalgJit;
+use rhizome_dew_linalg::Type;
 
 let jit = LinalgJit::new().unwrap();
 

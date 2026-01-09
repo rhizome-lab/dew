@@ -1,18 +1,18 @@
 # Introduction
 
-Sap is an expression language for procedural generation. It provides composable math expressions that compile to multiple backends.
+Dew is an expression language for procedural generation. It provides composable math expressions that compile to multiple backends.
 
 Part of the [Rhizome](https://rhizome-lab.github.io) ecosystem.
 
 ## Architecture
 
 ```
-sap-core           # Syntax only: AST, parsing
+dew-core           # Syntax only: AST, parsing
     |
-    +-- sap-scalar     # Scalar domain: f32/f64 math functions
+    +-- dew-scalar     # Scalar domain: f32/f64 math functions
     |                  # Backends: wgsl, lua, cranelift
     |
-    +-- sap-linalg     # Linalg domain: Vec2, Vec3, Mat2, Mat3, etc.
+    +-- dew-linalg     # Linalg domain: Vec2, Vec3, Mat2, Mat3, etc.
                        # Backends: wgsl, lua, cranelift
 ```
 
@@ -24,8 +24,8 @@ sap-core           # Syntax only: AST, parsing
 ## Quick Example
 
 ```rust
-use rhizome_sap_core::Expr;
-use rhizome_sap_scalar::{eval, scalar_registry};
+use rhizome_dew_core::Expr;
+use rhizome_dew_scalar::{eval, scalar_registry};
 
 // Parse an expression
 let expr = Expr::parse("sin(x) + cos(y)").unwrap();
@@ -53,13 +53,13 @@ Enable in `Cargo.toml`:
 
 ```toml
 [dependencies]
-rhizome-sap-scalar = { version = "0.1", features = ["wgsl", "lua", "cranelift"] }
+rhizome-dew-scalar = { version = "0.1", features = ["wgsl", "lua", "cranelift"] }
 ```
 
 ## Crates
 
 | Crate | Description |
 |-------|-------------|
-| `rhizome-sap-core` | Core AST and parsing |
-| `rhizome-sap-scalar` | Scalar math: sin, cos, exp, lerp, etc. |
-| `rhizome-sap-linalg` | Linear algebra: Vec2-4, Mat2-4, dot, cross, etc. |
+| `rhizome-dew-core` | Core AST and parsing |
+| `rhizome-dew-scalar` | Scalar math: sin, cos, exp, lerp, etc. |
+| `rhizome-dew-linalg` | Linear algebra: Vec2-4, Mat2-4, dot, cross, etc. |

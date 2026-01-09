@@ -1,21 +1,21 @@
 # WGSL Backend
 
-Generate WebGPU Shading Language code from sap expressions.
+Generate WebGPU Shading Language code from dew expressions.
 
 ## Enable
 
 ```toml
-rhizome-sap-scalar = { version = "0.1", features = ["wgsl"] }
-rhizome-sap-linalg = { version = "0.1", features = ["wgsl"] }
+rhizome-dew-scalar = { version = "0.1", features = ["wgsl"] }
+rhizome-dew-linalg = { version = "0.1", features = ["wgsl"] }
 ```
 
-## sap-scalar
+## dew-scalar
 
 ### Generate Expression
 
 ```rust
-use rhizome_sap_core::Expr;
-use rhizome_sap_scalar::wgsl::emit_wgsl;
+use rhizome_dew_core::Expr;
+use rhizome_dew_scalar::wgsl::emit_wgsl;
 
 let expr = Expr::parse("sin(x) + cos(y)").unwrap();
 let wgsl = emit_wgsl(expr.ast()).unwrap();
@@ -27,7 +27,7 @@ println!("{}", wgsl.code);
 ### Generate Function
 
 ```rust
-use rhizome_sap_scalar::wgsl::emit_wgsl_fn;
+use rhizome_dew_scalar::wgsl::emit_wgsl_fn;
 
 let expr = Expr::parse("x * x + y * y").unwrap();
 let wgsl = emit_wgsl_fn("distance_squared", expr.ast(), &["x", "y"]).unwrap();
@@ -39,14 +39,14 @@ println!("{}", wgsl);
 // }
 ```
 
-## sap-linalg
+## dew-linalg
 
 ### Generate with Types
 
 ```rust
-use rhizome_sap_core::Expr;
-use rhizome_sap_linalg::wgsl::emit_wgsl;
-use rhizome_sap_linalg::Type;
+use rhizome_dew_core::Expr;
+use rhizome_dew_linalg::wgsl::emit_wgsl;
+use rhizome_dew_linalg::Type;
 use std::collections::HashMap;
 
 let expr = Expr::parse("normalize(v) * 2.0").unwrap();
@@ -66,7 +66,7 @@ println!("Result type: {:?}", result.typ);
 
 ## Function Mapping
 
-| sap | WGSL |
+| dew | WGSL |
 |-----|------|
 | `lerp(a, b, t)` | `mix(a, b, t)` |
 | `ln(x)` | `log(x)` |

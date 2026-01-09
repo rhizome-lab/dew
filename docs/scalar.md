@@ -1,23 +1,23 @@
-# sap-scalar
+# dew-scalar
 
-Standard scalar math functions for sap expressions.
+Standard scalar math functions for dew expressions.
 
 ## Installation
 
 ```toml
 [dependencies]
-rhizome-sap-core = "0.1"
-rhizome-sap-scalar = "0.1"
+rhizome-dew-core = "0.1"
+rhizome-dew-scalar = "0.1"
 
 # Enable backends as needed
-rhizome-sap-scalar = { version = "0.1", features = ["wgsl", "lua", "cranelift"] }
+rhizome-dew-scalar = { version = "0.1", features = ["wgsl", "lua", "cranelift"] }
 ```
 
 ## Basic Usage
 
 ```rust
-use rhizome_sap_core::Expr;
-use rhizome_sap_scalar::{eval, scalar_registry};
+use rhizome_dew_core::Expr;
+use rhizome_dew_scalar::{eval, scalar_registry};
 use std::collections::HashMap;
 
 // Parse an expression
@@ -116,7 +116,7 @@ println!("Result: {}", result);
 Works with any `T: Float` from num-traits:
 
 ```rust
-use rhizome_sap_scalar::{eval, scalar_registry};
+use rhizome_dew_scalar::{eval, scalar_registry};
 
 // f32
 let result_f32: f32 = eval::<f32>(expr.ast(), &vars_f32, &scalar_registry()).unwrap();

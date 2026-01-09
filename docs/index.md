@@ -2,7 +2,7 @@
 layout: home
 
 hero:
-  name: Sap
+  name: Dew
   text: Expression Language for Procedural Generation
   tagline: Composable math expressions, multiple backends
   actions:
@@ -11,11 +11,11 @@ hero:
       link: /introduction
     - theme: alt
       text: View on GitHub
-      link: https://github.com/rhizome-lab/sap
+      link: https://github.com/rhizome-lab/dew
 
 features:
   - title: Domain Crates
-    details: sap-scalar for math functions, sap-linalg for vectors and matrices
+    details: dew-scalar for math functions, dew-linalg for vectors and matrices
   - title: Multiple Backends
     details: WGSL (GPU shaders), Cranelift (JIT), Lua (scripting)
   - title: Generic Numeric Types

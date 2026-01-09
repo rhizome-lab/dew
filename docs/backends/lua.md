@@ -1,21 +1,21 @@
 # Lua Backend
 
-Generate and execute Lua code from sap expressions.
+Generate and execute Lua code from dew expressions.
 
 ## Enable
 
 ```toml
-rhizome-sap-scalar = { version = "0.1", features = ["lua"] }
-rhizome-sap-linalg = { version = "0.1", features = ["lua"] }
+rhizome-dew-scalar = { version = "0.1", features = ["lua"] }
+rhizome-dew-linalg = { version = "0.1", features = ["lua"] }
 ```
 
-## sap-scalar
+## dew-scalar
 
 ### Generate Lua Code
 
 ```rust
-use rhizome_sap_core::Expr;
-use rhizome_sap_scalar::lua::emit_lua;
+use rhizome_dew_core::Expr;
+use rhizome_dew_scalar::lua::emit_lua;
 
 let expr = Expr::parse("sin(x) + cos(y)").unwrap();
 let lua_code = emit_lua(expr.ast()).unwrap();
@@ -27,7 +27,7 @@ println!("{}", lua_code.code);
 ### Generate Function
 
 ```rust
-use rhizome_sap_scalar::lua::emit_lua_fn;
+use rhizome_dew_scalar::lua::emit_lua_fn;
 
 let expr = Expr::parse("x * x + y * y").unwrap();
 let lua_fn = emit_lua_fn("distance_squared", expr.ast(), &["x", "y"]).unwrap();
@@ -42,8 +42,8 @@ println!("{}", lua_fn);
 ### Execute Directly
 
 ```rust
-use rhizome_sap_core::Expr;
-use rhizome_sap_scalar::lua::eval_lua;
+use rhizome_dew_core::Expr;
+use rhizome_dew_scalar::lua::eval_lua;
 use std::collections::HashMap;
 
 let expr = Expr::parse("sin(x) * 2").unwrap();
@@ -55,14 +55,14 @@ let result = eval_lua(expr.ast(), &vars).unwrap();
 println!("Result: {}", result);
 ```
 
-## sap-linalg
+## dew-linalg
 
 ### Generate with Types
 
 ```rust
-use rhizome_sap_core::Expr;
-use rhizome_sap_linalg::lua::emit_lua;
-use rhizome_sap_linalg::Type;
+use rhizome_dew_core::Expr;
+use rhizome_dew_linalg::lua::emit_lua;
+use rhizome_dew_linalg::Type;
 use std::collections::HashMap;
 
 let expr = Expr::parse("dot(a, b)").unwrap();
@@ -79,8 +79,8 @@ println!("{}", result.code);
 ### Execute with Values
 
 ```rust
-use rhizome_sap_linalg::lua::eval_lua;
-use rhizome_sap_linalg::Value;
+use rhizome_dew_linalg::lua::eval_lua;
+use rhizome_dew_linalg::Value;
 
 let expr = Expr::parse("length(v)").unwrap();
 
@@ -93,7 +93,7 @@ let result = eval_lua(expr.ast(), &vars).unwrap();
 
 ## Function Mapping
 
-| sap | Lua |
+| dew | Lua |
 |-----|-----|
 | `sin(x)` | `math.sin(x)` |
 | `floor(x)` | `math.floor(x)` |

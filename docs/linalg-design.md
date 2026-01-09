@@ -1,15 +1,15 @@
-# sap-linalg Design Notes
+# dew-linalg Design Notes
 
 ## Core Architecture Decision
 
 **Core = syntax only, domains = semantics.**
 
-`sap-core` provides:
+`dew-core` provides:
 - AST representation
 - Parsing
 - Backend trait interfaces
 
-Domain crates (like `sap-linalg`) provide:
+Domain crates (like `dew-linalg`) provide:
 - Value types
 - Type checking/inference
 - Evaluation (interpreter)
@@ -30,7 +30,7 @@ Component-wise decomposition (Vec3 = 3 scalar Exprs) loses:
 Each domain defines its own `Value` enum:
 
 ```rust
-// sap-linalg
+// dew-linalg
 enum Value {
     Scalar(f32),
     Vec2([f32; 2]),
@@ -88,7 +88,7 @@ fn emit_wgsl(ast: &Ast, var_types: &HashMap<String, Type>) -> Result<(String, Ty
 ## Feature Gating Plan
 
 ```
-sap-linalg
+dew-linalg
 ├── vec2, mat2          (always)
 ├── vec3, mat3          (default, feature = "3d")
 ├── vec4, mat4          (feature = "4d" or "homogeneous")
@@ -99,7 +99,7 @@ Mat3/Mat4 extra row/col useful for affine transforms (translation).
 
 ## Open Questions
 
-1. **Type checking**: Per-domain, or shared `sap-types` crate?
+1. **Type checking**: Per-domain, or shared `dew-types` crate?
 2. **Function dispatch**: How does `mul(mat4, vec4)` find the right implementation?
 3. **AST changes**: Does core AST need type annotations, or is that domain-level?
 4. **Literal parsing**: `3.14` - is type inferred or annotated?
