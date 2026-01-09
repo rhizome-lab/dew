@@ -17,8 +17,41 @@
 //! let vars: HashMap<String, f32> = [("x".to_string(), 0.0)].into();
 //! let value = expr.eval(&vars, &registry).unwrap();
 //! ```
+//!
+//! # Backend-specific implementations
+//!
+//! Enable feature flags to get backend-specific function registries:
+//!
+//! - `wgsl` - WGSL code generation functions
+//! - `lua` - Lua code generation functions
+//! - `cranelift` - Cranelift JIT functions (limited to non-transcendental)
 
 use sap_core::{Ast, BinOp, ExprFn, FunctionRegistry};
+
+#[cfg(feature = "wgsl")]
+pub mod wgsl;
+
+#[cfg(feature = "lua")]
+pub mod lua;
+
+#[cfg(feature = "cranelift")]
+pub mod cranelift;
+
+// Re-export convenience functions
+#[cfg(feature = "wgsl")]
+pub use wgsl::{register_wgsl, wgsl_std_registry};
+
+#[cfg(feature = "lua")]
+pub use lua::{lua_std_registry, register_lua};
+
+#[cfg(feature = "cranelift")]
+pub use cranelift::{cranelift_std_registry, register_cranelift};
+
+#[cfg(all(test, feature = "all"))]
+mod parity_tests;
+
+#[cfg(all(test, feature = "all"))]
+mod exhaustive_tests;
 
 // ============================================================================
 // Macro for simple functions
@@ -119,7 +152,26 @@ define_fn!(InverseSqrt, "inversesqrt", 1, |a| 1.0 / a.sqrt());
 // ============================================================================
 
 define_fn!(Abs, "abs", 1, |a| a.abs());
-define_fn!(Sign, "sign", 1, |a| a.signum());
+/// sign: -1 for negative, 0 for zero, 1 for positive (matches WGSL/GLSL)
+pub struct Sign;
+impl ExprFn for Sign {
+    fn name(&self) -> &str {
+        "sign"
+    }
+    fn arg_count(&self) -> usize {
+        1
+    }
+    fn call(&self, args: &[f32]) -> f32 {
+        let x = args[0];
+        if x > 0.0 {
+            1.0
+        } else if x < 0.0 {
+            -1.0
+        } else {
+            0.0
+        }
+    }
+}
 define_fn!(Floor, "floor", 1, |a| a.floor());
 define_fn!(Ceil, "ceil", 1, |a| a.ceil());
 define_fn!(Round, "round", 1, |a| a.round());

@@ -19,10 +19,188 @@
 //! ```
 
 use cranelift::prelude::*;
+
+// Re-export Cranelift types needed for implementing CraneliftFn
+pub use cranelift::codegen::ir::FuncRef;
+pub use cranelift::prelude::{FloatCC, FunctionBuilder, InstBuilder, Value};
 use cranelift_jit::{JITBuilder, JITModule};
-use cranelift_module::{Linkage, Module};
+use cranelift_module::{FuncId, Linkage, Module};
 use sap_core::{Ast, BinOp, UnaryOp};
 use std::collections::HashMap;
+
+// ============================================================================
+// Math function wrappers (extern "C" for Cranelift to call)
+// ============================================================================
+
+extern "C" fn math_sin(x: f32) -> f32 {
+    x.sin()
+}
+extern "C" fn math_cos(x: f32) -> f32 {
+    x.cos()
+}
+extern "C" fn math_tan(x: f32) -> f32 {
+    x.tan()
+}
+extern "C" fn math_asin(x: f32) -> f32 {
+    x.asin()
+}
+extern "C" fn math_acos(x: f32) -> f32 {
+    x.acos()
+}
+extern "C" fn math_atan(x: f32) -> f32 {
+    x.atan()
+}
+extern "C" fn math_atan2(y: f32, x: f32) -> f32 {
+    y.atan2(x)
+}
+extern "C" fn math_sinh(x: f32) -> f32 {
+    x.sinh()
+}
+extern "C" fn math_cosh(x: f32) -> f32 {
+    x.cosh()
+}
+extern "C" fn math_tanh(x: f32) -> f32 {
+    x.tanh()
+}
+extern "C" fn math_exp(x: f32) -> f32 {
+    x.exp()
+}
+extern "C" fn math_exp2(x: f32) -> f32 {
+    x.exp2()
+}
+extern "C" fn math_ln(x: f32) -> f32 {
+    x.ln()
+}
+extern "C" fn math_log2(x: f32) -> f32 {
+    x.log2()
+}
+extern "C" fn math_log10(x: f32) -> f32 {
+    x.log10()
+}
+extern "C" fn math_pow(base: f32, exp: f32) -> f32 {
+    base.powf(exp)
+}
+extern "C" fn math_sqrt(x: f32) -> f32 {
+    x.sqrt()
+}
+extern "C" fn math_inversesqrt(x: f32) -> f32 {
+    1.0 / x.sqrt()
+}
+
+/// Info about a math symbol: name and arity
+struct MathSymbol {
+    name: &'static str,
+    ptr: *const u8,
+    arity: usize,
+}
+
+fn math_symbols() -> Vec<MathSymbol> {
+    vec![
+        MathSymbol {
+            name: "sap_sin",
+            ptr: math_sin as *const u8,
+            arity: 1,
+        },
+        MathSymbol {
+            name: "sap_cos",
+            ptr: math_cos as *const u8,
+            arity: 1,
+        },
+        MathSymbol {
+            name: "sap_tan",
+            ptr: math_tan as *const u8,
+            arity: 1,
+        },
+        MathSymbol {
+            name: "sap_asin",
+            ptr: math_asin as *const u8,
+            arity: 1,
+        },
+        MathSymbol {
+            name: "sap_acos",
+            ptr: math_acos as *const u8,
+            arity: 1,
+        },
+        MathSymbol {
+            name: "sap_atan",
+            ptr: math_atan as *const u8,
+            arity: 1,
+        },
+        MathSymbol {
+            name: "sap_atan2",
+            ptr: math_atan2 as *const u8,
+            arity: 2,
+        },
+        MathSymbol {
+            name: "sap_sinh",
+            ptr: math_sinh as *const u8,
+            arity: 1,
+        },
+        MathSymbol {
+            name: "sap_cosh",
+            ptr: math_cosh as *const u8,
+            arity: 1,
+        },
+        MathSymbol {
+            name: "sap_tanh",
+            ptr: math_tanh as *const u8,
+            arity: 1,
+        },
+        MathSymbol {
+            name: "sap_exp",
+            ptr: math_exp as *const u8,
+            arity: 1,
+        },
+        MathSymbol {
+            name: "sap_exp2",
+            ptr: math_exp2 as *const u8,
+            arity: 1,
+        },
+        MathSymbol {
+            name: "sap_ln",
+            ptr: math_ln as *const u8,
+            arity: 1,
+        },
+        MathSymbol {
+            name: "sap_log2",
+            ptr: math_log2 as *const u8,
+            arity: 1,
+        },
+        MathSymbol {
+            name: "sap_log10",
+            ptr: math_log10 as *const u8,
+            arity: 1,
+        },
+        MathSymbol {
+            name: "sap_pow",
+            ptr: math_pow as *const u8,
+            arity: 2,
+        },
+        MathSymbol {
+            name: "sap_sqrt",
+            ptr: math_sqrt as *const u8,
+            arity: 1,
+        },
+        MathSymbol {
+            name: "sap_inversesqrt",
+            ptr: math_inversesqrt as *const u8,
+            arity: 1,
+        },
+    ]
+}
+
+/// Available math function references for use during compilation.
+#[derive(Default)]
+pub struct MathFuncs {
+    funcs: HashMap<String, FuncRef>,
+}
+
+impl MathFuncs {
+    /// Get a FuncRef for a math function by symbol name (e.g., "sap_sin").
+    pub fn get(&self, name: &str) -> Option<FuncRef> {
+        self.funcs.get(name).copied()
+    }
+}
 
 // ============================================================================
 // Cranelift Function Registry
@@ -34,7 +212,10 @@ pub trait CraneliftFn: Send + Sync {
     fn name(&self) -> &str;
 
     /// Emit Cranelift IR for this function call.
-    fn emit(&self, builder: &mut FunctionBuilder, args: &[Value]) -> Value;
+    ///
+    /// The `math` parameter provides access to pre-registered math functions
+    /// (sin, cos, exp, etc.) that can be called from JIT code.
+    fn emit(&self, builder: &mut FunctionBuilder, args: &[Value], math: &MathFuncs) -> Value;
 }
 
 /// Registry of Cranelift function implementations.
@@ -108,10 +289,25 @@ impl CompiledFn {
                         std::mem::transmute(self.func_ptr);
                     f(args[0], args[1], args[2], args[3])
                 }
-                _ => panic!("too many parameters (max 4)"),
+                5 => {
+                    let f: extern "C" fn(f32, f32, f32, f32, f32) -> f32 =
+                        std::mem::transmute(self.func_ptr);
+                    f(args[0], args[1], args[2], args[3], args[4])
+                }
+                6 => {
+                    let f: extern "C" fn(f32, f32, f32, f32, f32, f32) -> f32 =
+                        std::mem::transmute(self.func_ptr);
+                    f(args[0], args[1], args[2], args[3], args[4], args[5])
+                }
+                _ => panic!("too many parameters (max 6)"),
             }
         }
     }
+}
+
+/// Declared math function IDs in the module
+struct DeclaredMathFuncs {
+    func_ids: HashMap<String, (FuncId, usize)>, // name -> (func_id, arity)
 }
 
 /// JIT compiler for expressions.
@@ -120,10 +316,16 @@ pub struct JitCompiler {
 }
 
 impl JitCompiler {
-    /// Creates a new JIT compiler.
+    /// Creates a new JIT compiler with math functions pre-registered.
     pub fn new() -> Result<Self, String> {
-        let builder = JITBuilder::new(cranelift_module::default_libcall_names())
+        let mut builder = JITBuilder::new(cranelift_module::default_libcall_names())
             .map_err(|e| e.to_string())?;
+
+        // Register math symbols
+        for sym in math_symbols() {
+            builder.symbol(sym.name, sym.ptr);
+        }
+
         Ok(Self { builder })
     }
 
@@ -136,6 +338,9 @@ impl JitCompiler {
     ) -> Result<CompiledFn, String> {
         let mut module = JITModule::new(self.builder);
         let mut ctx = module.make_context();
+
+        // Declare math functions in the module
+        let declared = declare_math_funcs(&mut module)?;
 
         // Build function signature: (f32, f32, ...) -> f32
         let mut sig = module.make_signature();
@@ -160,6 +365,9 @@ impl JitCompiler {
             builder.switch_to_block(entry_block);
             builder.seal_block(entry_block);
 
+            // Import math functions into this function
+            let math = import_math_funcs(&mut builder, &mut module, &declared);
+
             // Map parameter names to values
             let mut var_map: HashMap<String, Value> = HashMap::new();
             for (i, name) in params.iter().enumerate() {
@@ -168,7 +376,7 @@ impl JitCompiler {
             }
 
             // Compile the expression
-            let result = compile_ast(ast, &mut builder, &var_map, registry)?;
+            let result = compile_ast(ast, &mut builder, &var_map, registry, &math)?;
             builder.ins().return_(&[result]);
             builder.finalize();
         }
@@ -190,11 +398,47 @@ impl JitCompiler {
     }
 }
 
+fn declare_math_funcs(module: &mut JITModule) -> Result<DeclaredMathFuncs, String> {
+    let mut func_ids = HashMap::new();
+
+    for sym in math_symbols() {
+        let mut sig = module.make_signature();
+        for _ in 0..sym.arity {
+            sig.params.push(AbiParam::new(types::F32));
+        }
+        sig.returns.push(AbiParam::new(types::F32));
+
+        let func_id = module
+            .declare_function(sym.name, Linkage::Import, &sig)
+            .map_err(|e| e.to_string())?;
+
+        func_ids.insert(sym.name.to_string(), (func_id, sym.arity));
+    }
+
+    Ok(DeclaredMathFuncs { func_ids })
+}
+
+fn import_math_funcs(
+    builder: &mut FunctionBuilder,
+    module: &mut JITModule,
+    declared: &DeclaredMathFuncs,
+) -> MathFuncs {
+    let mut funcs = HashMap::new();
+
+    for (name, (func_id, _arity)) in &declared.func_ids {
+        let func_ref = module.declare_func_in_func(*func_id, builder.func);
+        funcs.insert(name.clone(), func_ref);
+    }
+
+    MathFuncs { funcs }
+}
+
 fn compile_ast(
     ast: &Ast,
     builder: &mut FunctionBuilder,
     vars: &HashMap<String, Value>,
     registry: &CraneliftRegistry,
+    math: &MathFuncs,
 ) -> Result<Value, String> {
     match ast {
         Ast::Num(n) => Ok(builder.ins().f32const(*n)),
@@ -203,23 +447,23 @@ fn compile_ast(
             .copied()
             .ok_or_else(|| format!("unknown variable: {}", name)),
         Ast::BinOp(op, left, right) => {
-            let l = compile_ast(left, builder, vars, registry)?;
-            let r = compile_ast(right, builder, vars, registry)?;
+            let l = compile_ast(left, builder, vars, registry, math)?;
+            let r = compile_ast(right, builder, vars, registry, math)?;
             Ok(match op {
                 BinOp::Add => builder.ins().fadd(l, r),
                 BinOp::Sub => builder.ins().fsub(l, r),
                 BinOp::Mul => builder.ins().fmul(l, r),
                 BinOp::Div => builder.ins().fdiv(l, r),
                 BinOp::Pow => {
-                    // No native pow - would need libm call
-                    // For now, approximate with exp(r * ln(l)) for positive l
-                    // This is a simplification; real impl would call libm
-                    return Err("pow not yet implemented in cranelift backend".to_string());
+                    // Call the registered pow function
+                    let pow_ref = math.get("sap_pow").ok_or("pow function not available")?;
+                    let call = builder.ins().call(pow_ref, &[l, r]);
+                    builder.inst_results(call)[0]
                 }
             })
         }
         Ast::UnaryOp(op, inner) => {
-            let v = compile_ast(inner, builder, vars, registry)?;
+            let v = compile_ast(inner, builder, vars, registry, math)?;
             Ok(match op {
                 UnaryOp::Neg => builder.ins().fneg(v),
             })
@@ -227,11 +471,11 @@ fn compile_ast(
         Ast::Call(name, args) => {
             let arg_vals: Vec<Value> = args
                 .iter()
-                .map(|a| compile_ast(a, builder, vars, registry))
+                .map(|a| compile_ast(a, builder, vars, registry, math))
                 .collect::<Result<_, _>>()?;
 
             if let Some(func) = registry.get(name) {
-                Ok(func.emit(builder, &arg_vals))
+                Ok(func.emit(builder, &arg_vals, math))
             } else {
                 Err(format!("unknown function: {}", name))
             }
@@ -278,5 +522,14 @@ mod tests {
         let jit = JitCompiler::new().unwrap();
         let func = jit.compile(expr.ast(), &["x"], &registry).unwrap();
         assert_eq!(func.call(&[5.0]), -5.0);
+    }
+
+    #[test]
+    fn test_compile_pow() {
+        let expr = Expr::parse("x ^ 2").unwrap();
+        let registry = CraneliftRegistry::new();
+        let jit = JitCompiler::new().unwrap();
+        let func = jit.compile(expr.ast(), &["x"], &registry).unwrap();
+        assert_eq!(func.call(&[3.0]), 9.0);
     }
 }

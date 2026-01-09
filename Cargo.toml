@@ -14,3 +14,4 @@ sap-std = { path = "crates/sap-std" }
 sap-wgsl = { path = "crates/sap-wgsl" }
 sap-cranelift = { path = "crates/sap-cranelift" }
 sap-lua = { path = "crates/sap-lua" }
+sap-linalg = { path = "crates/sap-linalg" }
