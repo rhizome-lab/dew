@@ -19,6 +19,14 @@
 - [x] Cranelift JIT compilation (sap-cranelift)
 - [x] Lua code generation (sap-lua, mlua)
 
+#### Cranelift: pow support
+
+Currently returns error. Options:
+1. **Link libm** - call `powf` via Cranelift external function linkage
+2. **Self-implement** - `pow(a,b) = exp(b * ln(a))` (still needs exp/ln from libm)
+3. **Integer powers only** - repeated multiplication for small integer exponents
+4. **Decompose in sap-core** - transform `a^b` to `pow(a,b)` call, let registry handle it
+
 ### Standard Library Backend Implementations
 
 - [ ] Add WGSL std functions to sap-std (behind feature flag)

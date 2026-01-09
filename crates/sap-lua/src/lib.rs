@@ -162,20 +162,26 @@ fn format_float(n: f32) -> String {
 
 /// Compiles and evaluates an expression with mlua.
 ///
+/// Uses Lua's `math` library for unknown functions (sin, cos, etc.).
+///
 /// # Example
 ///
 /// ```
 /// use sap_core::Expr;
-/// use sap_lua::{eval, LuaRegistry};
+/// use sap_lua::eval;
 /// use std::collections::HashMap;
 ///
-/// let expr = Expr::parse("x * 2 + 1").unwrap();
-/// let registry = LuaRegistry::new();
-/// let vars: HashMap<String, f32> = [("x".to_string(), 3.0)].into();
-/// let result = eval(expr.ast(), &vars, &registry).unwrap();
-/// assert_eq!(result, 7.0);
+/// let expr = Expr::parse("sin(x) + 1").unwrap();
+/// let vars: HashMap<String, f32> = [("x".to_string(), 0.0)].into();
+/// let result = eval(expr.ast(), &vars).unwrap();
+/// assert!((result - 1.0).abs() < 0.001);
 /// ```
-pub fn eval(
+pub fn eval(ast: &Ast, vars: &HashMap<String, f32>) -> Result<f32, mlua::Error> {
+    eval_with_registry(ast, vars, &LuaRegistry::new())
+}
+
+/// Compiles and evaluates an expression with a custom function registry.
+pub fn eval_with_registry(
     ast: &Ast,
     vars: &HashMap<String, f32>,
     registry: &LuaRegistry,
@@ -238,18 +244,16 @@ mod tests {
     #[test]
     fn test_eval() {
         let expr = Expr::parse("x * 2 + 1").unwrap();
-        let registry = LuaRegistry::new();
         let vars: HashMap<String, f32> = [("x".to_string(), 3.0)].into();
-        let result = eval(expr.ast(), &vars, &registry).unwrap();
+        let result = eval(expr.ast(), &vars).unwrap();
         assert_eq!(result, 7.0);
     }
 
     #[test]
     fn test_eval_math() {
         let expr = Expr::parse("sin(0) + cos(0)").unwrap();
-        let registry = LuaRegistry::new();
         let vars = HashMap::new();
-        let result = eval(expr.ast(), &vars, &registry).unwrap();
+        let result = eval(expr.ast(), &vars).unwrap();
         assert!((result - 1.0).abs() < 0.001); // sin(0) + cos(0) = 0 + 1 = 1
     }
 }
