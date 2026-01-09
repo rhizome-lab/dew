@@ -15,9 +15,15 @@
 
 ### Backends
 
-- [ ] WGSL code generation
-- [ ] Cranelift JIT compilation
-- [ ] Lua code generation (maybe)
+- [x] WGSL code generation (sap-wgsl)
+- [x] Cranelift JIT compilation (sap-cranelift)
+- [x] Lua code generation (sap-lua, mlua)
+
+### Standard Library Backend Implementations
+
+- [ ] Add WGSL std functions to sap-std (behind feature flag)
+- [ ] Add Lua std functions to sap-std (behind feature flag)
+- [ ] Add Cranelift std functions to sap-std (behind feature flag)
 
 ### Infrastructure
 

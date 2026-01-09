@@ -3,7 +3,7 @@ name = "sap-wgsl"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "WGSL backend for sap expressions"
+description = "WGSL code generation backend for sap expressions"
 
 [dependencies]
 sap-core.workspace = true

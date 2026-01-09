@@ -3,7 +3,8 @@ name = "sap-lua"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Lua backend for sap expressions"
+description = "Lua code generation backend for sap expressions"
 
 [dependencies]
 sap-core.workspace = true
+mlua = { version = "0.10", features = ["lua54", "vendored"] }
