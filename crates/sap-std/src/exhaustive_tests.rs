@@ -4,9 +4,9 @@
 //! in the standard library across interpreter, Lua, and Cranelift backends.
 
 use crate::{cranelift_std_registry, lua_std_registry, std_registry};
-use sap_core::Expr;
-use sap_cranelift::JitCompiler;
-use sap_lua::eval_with_registry;
+use rhizome_sap_core::Expr;
+use rhizome_sap_cranelift::JitCompiler;
+use rhizome_sap_lua::eval_with_registry;
 use std::collections::HashMap;
 
 const EPSILON: f32 = 0.0001;

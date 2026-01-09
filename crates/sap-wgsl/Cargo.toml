@@ -1,9 +1,9 @@
 [package]
-name = "sap-wgsl"
+name = "rhizome-sap-wgsl"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "WGSL code generation backend for sap expressions"
 
 [dependencies]
-sap-core.workspace = true
+rhizome-sap-core.workspace = true

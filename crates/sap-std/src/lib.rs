@@ -6,8 +6,8 @@
 //! # Usage
 //!
 //! ```
-//! use sap_core::{Expr, FunctionRegistry};
-//! use sap_std::register_std;
+//! use rhizome_sap_core::{Expr, FunctionRegistry};
+//! use rhizome_sap_std::register_std;
 //! use std::collections::HashMap;
 //!
 //! let mut registry = FunctionRegistry::new();
@@ -26,7 +26,7 @@
 //! - `lua` - Lua code generation functions
 //! - `cranelift` - Cranelift JIT functions (limited to non-transcendental)
 
-use sap_core::{Ast, BinOp, ExprFn, FunctionRegistry};
+use rhizome_sap_core::{Ast, BinOp, ExprFn, FunctionRegistry};
 
 #[cfg(feature = "wgsl")]
 pub mod wgsl;
@@ -372,7 +372,7 @@ pub fn std_registry() -> FunctionRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sap_core::Expr;
+    use rhizome_sap_core::Expr;
     use std::collections::HashMap;
 
     fn eval(expr: &str, vars: &[(&str, f32)]) -> f32 {

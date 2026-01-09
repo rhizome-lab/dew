@@ -11,8 +11,8 @@
 //! # Example
 //!
 //! ```
-//! use sap_core::Expr;
-//! use sap_linalg::{Value, Type, eval, FunctionRegistry};
+//! use rhizome_sap_core::Expr;
+//! use rhizome_sap_linalg::{Value, Type, eval, FunctionRegistry};
 //! use std::collections::HashMap;
 //!
 //! let expr = Expr::parse("a + b").unwrap();
@@ -27,7 +27,7 @@
 //! ```
 
 use num_traits::Float;
-use sap_core::{Ast, BinOp, UnaryOp};
+use rhizome_sap_core::{Ast, BinOp, UnaryOp};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -315,7 +315,7 @@ pub fn eval<T: Float>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sap_core::Expr;
+    use rhizome_sap_core::Expr;
 
     fn eval_expr(expr: &str, vars: &[(&str, Value<f32>)]) -> Result<Value<f32>, Error> {
         let expr = Expr::parse(expr).unwrap();

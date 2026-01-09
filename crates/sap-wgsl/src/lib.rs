@@ -5,15 +5,15 @@
 //! # Example
 //!
 //! ```
-//! use sap_core::Expr;
-//! use sap_wgsl::{to_wgsl, WgslRegistry};
+//! use rhizome_sap_core::Expr;
+//! use rhizome_sap_wgsl::{to_wgsl, WgslRegistry};
 //!
 //! let expr = Expr::parse("sin(x) + y * 2").unwrap();
 //! let registry = WgslRegistry::new(); // use sap_std::register_wgsl() to add std functions
 //! let wgsl = to_wgsl(expr.ast(), &registry);
 //! ```
 
-use sap_core::{Ast, BinOp, UnaryOp};
+use rhizome_sap_core::{Ast, BinOp, UnaryOp};
 use std::collections::HashMap;
 
 // ============================================================================
@@ -166,7 +166,7 @@ fn format_float(n: f32) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sap_core::Expr;
+    use rhizome_sap_core::Expr;
 
     fn compile(input: &str) -> String {
         let expr = Expr::parse(input).unwrap();

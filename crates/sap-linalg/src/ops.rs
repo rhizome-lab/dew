@@ -2,7 +2,7 @@
 
 use crate::{Error, Value};
 use num_traits::Float;
-use sap_core::{BinOp, UnaryOp};
+use rhizome_sap_core::{BinOp, UnaryOp};
 
 /// Apply a binary operation to two values.
 pub fn apply_binop<T: Float>(

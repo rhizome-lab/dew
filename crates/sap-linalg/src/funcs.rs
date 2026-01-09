@@ -485,7 +485,7 @@ pub fn linalg_registry<T: Float + 'static>() -> FunctionRegistry<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sap_core::Expr;
+    use rhizome_sap_core::Expr;
     use std::collections::HashMap;
 
     fn eval_expr(expr: &str, vars: &[(&str, Value<f32>)]) -> Value<f32> {

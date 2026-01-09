@@ -22,7 +22,7 @@
 //! # Example
 //!
 //! ```
-//! use sap_core::{Expr, FunctionRegistry};
+//! use rhizome_sap_core::{Expr, FunctionRegistry};
 //! use std::collections::HashMap;
 //!
 //! let registry = FunctionRegistry::new();

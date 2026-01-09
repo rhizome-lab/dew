@@ -1,12 +1,12 @@
 [package]
-name = "sap-cranelift"
+name = "rhizome-sap-cranelift"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Cranelift JIT compilation backend for sap expressions"
 
 [dependencies]
-sap-core.workspace = true
+rhizome-sap-core.workspace = true
 cranelift = "0.116"
 cranelift-jit = "0.116"
 cranelift-module = "0.116"

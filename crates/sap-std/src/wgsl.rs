@@ -1,6 +1,6 @@
 //! WGSL backend implementations for standard library functions.
 
-use sap_wgsl::{WgslFn, WgslRegistry};
+use rhizome_sap_wgsl::{WgslFn, WgslRegistry};
 
 // ============================================================================
 // Macro for simple WGSL functions
@@ -208,8 +208,8 @@ pub fn wgsl_std_registry() -> WgslRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sap_core::Expr;
-    use sap_wgsl::to_wgsl;
+    use rhizome_sap_core::Expr;
+    use rhizome_sap_wgsl::to_wgsl;
 
     fn compile(input: &str) -> String {
         let expr = Expr::parse(input).unwrap();

@@ -5,15 +5,15 @@
 //! # Example
 //!
 //! ```
-//! use sap_core::Expr;
-//! use sap_lua::{to_lua, LuaRegistry};
+//! use rhizome_sap_core::Expr;
+//! use rhizome_sap_lua::{to_lua, LuaRegistry};
 //!
 //! let expr = Expr::parse("sin(x) + y * 2").unwrap();
 //! let registry = LuaRegistry::new();
 //! let lua_code = to_lua(expr.ast(), &registry);
 //! ```
 
-use sap_core::{Ast, BinOp, UnaryOp};
+use rhizome_sap_core::{Ast, BinOp, UnaryOp};
 use std::collections::HashMap;
 
 // ============================================================================
@@ -167,8 +167,8 @@ fn format_float(n: f32) -> String {
 /// # Example
 ///
 /// ```
-/// use sap_core::Expr;
-/// use sap_lua::eval;
+/// use rhizome_sap_core::Expr;
+/// use rhizome_sap_lua::eval;
 /// use std::collections::HashMap;
 ///
 /// let expr = Expr::parse("sin(x) + 1").unwrap();
@@ -201,7 +201,7 @@ pub fn eval_with_registry(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sap_core::Expr;
+    use rhizome_sap_core::Expr;
 
     fn compile(input: &str) -> String {
         let expr = Expr::parse(input).unwrap();

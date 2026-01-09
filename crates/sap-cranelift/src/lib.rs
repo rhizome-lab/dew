@@ -5,8 +5,8 @@
 //! # Example
 //!
 //! ```ignore
-//! use sap_core::Expr;
-//! use sap_cranelift::{JitCompiler, CraneliftRegistry};
+//! use rhizome_sap_core::Expr;
+//! use rhizome_sap_cranelift::{JitCompiler, CraneliftRegistry};
 //!
 //! let expr = Expr::parse("x * 2 + y").unwrap();
 //! let registry = CraneliftRegistry::new();
@@ -25,7 +25,7 @@ pub use cranelift::codegen::ir::FuncRef;
 pub use cranelift::prelude::{FloatCC, FunctionBuilder, InstBuilder, Value};
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Linkage, Module};
-use sap_core::{Ast, BinOp, UnaryOp};
+use rhizome_sap_core::{Ast, BinOp, UnaryOp};
 use std::collections::HashMap;
 
 // ============================================================================
@@ -486,7 +486,7 @@ fn compile_ast(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sap_core::Expr;
+    use rhizome_sap_core::Expr;
 
     #[test]
     fn test_compile_number() {

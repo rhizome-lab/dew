@@ -6,7 +6,7 @@
 //! - Basic comparisons (min, max, clamp, etc.)
 //! - Interpolation (lerp, mix, smoothstep, etc.)
 
-use sap_cranelift::{
+use rhizome_sap_cranelift::{
     CraneliftFn, CraneliftRegistry, FloatCC, FunctionBuilder, InstBuilder, MathFuncs, Value,
 };
 
@@ -450,8 +450,8 @@ pub fn cranelift_std_registry() -> CraneliftRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sap_core::Expr;
-    use sap_cranelift::JitCompiler;
+    use rhizome_sap_core::Expr;
+    use rhizome_sap_cranelift::JitCompiler;
 
     fn eval(input: &str, params: &[&str], args: &[f32]) -> f32 {
         let expr = Expr::parse(input).unwrap();

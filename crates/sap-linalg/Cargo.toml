@@ -1,5 +1,5 @@
 [package]
-name = "sap-linalg"
+name = "rhizome-sap-linalg"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,5 +11,5 @@ default = ["3d"]
 4d = ["3d"]       # Vec4, Mat4 (implies 3d)
 
 [dependencies]
-sap-core = { workspace = true }
+rhizome-sap-core = { workspace = true }
 num-traits = "0.2"

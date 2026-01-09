@@ -9,9 +9,9 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/yourusername/sap"
 
 [workspace.dependencies]
-sap-core = { path = "crates/sap-core" }
-sap-std = { path = "crates/sap-std" }
-sap-wgsl = { path = "crates/sap-wgsl" }
-sap-cranelift = { path = "crates/sap-cranelift" }
-sap-lua = { path = "crates/sap-lua" }
-sap-linalg = { path = "crates/sap-linalg" }
+rhizome-sap-core = { path = "crates/sap-core" }
+rhizome-sap-std = { path = "crates/sap-std" }
+rhizome-sap-wgsl = { path = "crates/sap-wgsl" }
+rhizome-sap-cranelift = { path = "crates/sap-cranelift" }
+rhizome-sap-lua = { path = "crates/sap-lua" }
+rhizome-sap-linalg = { path = "crates/sap-linalg" }

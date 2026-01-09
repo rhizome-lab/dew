@@ -1,5 +1,5 @@
 [package]
-name = "sap-std"
+name = "rhizome-sap-std"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -7,13 +7,13 @@ description = "Standard function library for sap expressions"
 
 [features]
 default = []
-wgsl = ["dep:sap-wgsl"]
-lua = ["dep:sap-lua"]
-cranelift = ["dep:sap-cranelift"]
+wgsl = ["dep:rhizome-sap-wgsl"]
+lua = ["dep:rhizome-sap-lua"]
+cranelift = ["dep:rhizome-sap-cranelift"]
 all = ["wgsl", "lua", "cranelift"]
 
 [dependencies]
-sap-core.workspace = true
-sap-wgsl = { workspace = true, optional = true }
-sap-lua = { workspace = true, optional = true }
-sap-cranelift = { workspace = true, optional = true }
+rhizome-sap-core.workspace = true
+rhizome-sap-wgsl = { workspace = true, optional = true }
+rhizome-sap-lua = { workspace = true, optional = true }
+rhizome-sap-cranelift = { workspace = true, optional = true }

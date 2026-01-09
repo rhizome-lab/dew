@@ -1,6 +1,6 @@
 //! Lua backend implementations for standard library functions.
 
-use sap_lua::{LuaFn, LuaRegistry};
+use rhizome_sap_lua::{LuaFn, LuaRegistry};
 
 // ============================================================================
 // Macro for simple Lua functions
@@ -433,8 +433,8 @@ pub fn lua_std_registry() -> LuaRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sap_core::Expr;
-    use sap_lua::{eval_with_registry, to_lua};
+    use rhizome_sap_core::Expr;
+    use rhizome_sap_lua::{eval_with_registry, to_lua};
     use std::collections::HashMap;
 
     fn compile(input: &str) -> String {
