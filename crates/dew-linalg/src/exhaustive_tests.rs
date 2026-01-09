@@ -3,9 +3,9 @@
 //! Tests eval, Lua execution, and Cranelift JIT compilation.
 //! WGSL only generates code (no runtime), so we test code patterns.
 
-use crate::{Value, eval, linalg_registry};
 #[cfg(any(feature = "lua", feature = "wgsl"))]
 use crate::Type;
+use crate::{Value, eval, linalg_registry};
 use rhizome_dew_core::Expr;
 use std::collections::HashMap;
 
