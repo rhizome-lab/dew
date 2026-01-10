@@ -1,0 +1,40 @@
+{
+  "name": "tree-sitter-dew",
+  "version": "0.1.0",
+  "description": "Tree-sitter grammar for Dew expression language",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rhizome-lab/dew"
+  },
+  "license": "MIT",
+  "main": "bindings/node",
+  "types": "bindings/node",
+  "keywords": ["parser", "tree-sitter", "dew"],
+  "files": ["grammar.js", "binding.gyp", "prebuilds/**", "bindings/node/*", "queries/*", "src/**"],
+  "dependencies": {
+    "node-addon-api": "^7.1.0",
+    "node-gyp-build": "^4.8.0"
+  },
+  "peerDependencies": {
+    "tree-sitter": "^0.21.0"
+  },
+  "peerDependenciesMeta": {
+    "tree-sitter": { "optional": true }
+  },
+  "devDependencies": {
+    "tree-sitter-cli": "^0.22.0"
+  },
+  "scripts": {
+    "generate": "tree-sitter generate",
+    "test": "tree-sitter test",
+    "build": "tree-sitter generate && node-gyp rebuild"
+  },
+  "tree-sitter": [
+    {
+      "scope": "source.dew",
+      "file-types": ["dew"],
+      "highlights": "queries/highlights.scm",
+      "injection-regex": "^dew$"
+    }
+  ]
+}

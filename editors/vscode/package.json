@@ -1,0 +1,32 @@
+{
+  "name": "dew-lang",
+  "displayName": "Dew Language",
+  "description": "Syntax highlighting for Dew expression language",
+  "version": "0.1.0",
+  "publisher": "rhizome-lab",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rhizome-lab/dew"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "dew",
+        "aliases": ["Dew", "dew"],
+        "extensions": [".dew"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "dew",
+        "scopeName": "source.dew",
+        "path": "./syntaxes/dew.tmLanguage.json"
+      }
+    ]
+  }
+}

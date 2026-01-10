@@ -59,6 +59,41 @@ via passthrough.
 
 ## Future Work
 
+### Editor Support
+
+- [x] TextMate grammar (enables VSCode + Shiki/VitePress)
+- [x] VSCode extension (bundles TextMate grammar)
+- [x] Tree-sitter grammar (enables Neovim, Helix, Zed, Emacs)
+- [x] Shiki integration for VitePress docs
+
+### Web Playground
+
+- [ ] WASM build of dew crates (core + domain crates, no cranelift/lua backends)
+- [ ] Parser + collapsible AST viewer
+- [ ] Expression runner (interpreter)
+- [ ] Codegen viewer (WGSL, Lua output)
+- [ ] Feature toggle UI (cond, func) - requires runtime feature config or multiple WASM builds
+
+Stack: SolidJS, Bun, Vite or Astro, BEM
+Style reference: `~/git/lotus/packages/shared/src/index.css` (glassmorphic)
+
+**WASM blockers:**
+- `cranelift` feature: Can't JIT in browser. Skip for playground or show IR only.
+- `lua` feature: Split into `lua-codegen` (pure Rust) and `lua` (mlua execution).
+  Playground can use `lua-codegen` for viewing without C deps.
+- Core + eval: No blockers. `std::sync::Arc` works in WASM.
+
+**Feature toggles:**
+- Currently compile-time (`#[cfg(feature = "...")]`)
+- Options: (a) multiple WASM builds, (b) make features runtime-configurable
+- Simplest: always enable all features in playground build
+
+**Tooling ideas:**
+- Monaco editor with dew language support (reuse TextMate grammar)
+- wasm-bindgen for Rust-JS interop
+- Consider zustand or nanostores for state management
+- AST viewer: use a collapsible tree component (or build one)
+
 ### New Domain Crates
 
 - [x] Complex numbers (2D rotations) - dew-complex

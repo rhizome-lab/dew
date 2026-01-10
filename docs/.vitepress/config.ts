@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
+import dewGrammar from '../../editors/textmate/dew.tmLanguage.json'
 
 export default withMermaid(
   defineConfig({
@@ -7,6 +8,9 @@ export default withMermaid(
       optimizeDeps: {
         include: ['mermaid'],
       },
+    },
+    markdown: {
+      languages: [dewGrammar as any],
     },
     title: 'Dew',
     description: 'Minimal expression language with multiple backends',
