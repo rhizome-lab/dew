@@ -1,5 +1,5 @@
 {
-  description = "sap - minimal expression language";
+  description = "dew - minimal expression language";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -24,8 +24,11 @@
             # Fast linker for incremental builds
             mold
             clang
-            # JS tooling: docs
+            # JS tooling: docs + playground
             bun
+            # WASM tooling
+            wasm-pack
+            wasm-bindgen-cli
           ];
           LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath buildInputs}:$LD_LIBRARY_PATH";
         };
