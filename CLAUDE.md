@@ -10,13 +10,17 @@ Functions + numeric values, compiled to multiple backends (WGSL, Cranelift, Lua)
 
 **Crate structure:**
 - `dew-core` - Core AST, types, and expression representation
+- `dew-cond` - Conditional backend helpers for domain crates
 - `dew-scalar` - Standard scalar math functions (sin, cos, etc.)
 - `dew-linalg` - Linear algebra types and operations
-- `dew-wgsl` - WGSL code generation backend
-- `dew-cranelift` - Cranelift JIT compilation backend
-- `dew-lua` - Lua code generation backend
+- `dew-complex` - Complex number operations
+- `dew-quaternion` - Quaternion operations
+
+Backends (wgsl, lua, cranelift) are feature flags within each domain crate.
 
 ## Core Rule
+
+**Keep docs in sync:** When adding crates or features, update README.md and docs/.
 
 **Note things down immediately:**
 - Bugs/issues -> fix or add to TODO.md
