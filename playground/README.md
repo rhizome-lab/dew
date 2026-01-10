@@ -41,9 +41,15 @@ Open http://localhost:3000
 
 ## Building WASM
 
-(TODO: Document wasm-pack setup)
+Install wasm-pack:
+```bash
+cargo install wasm-pack
+```
 
+Build the WASM package:
 ```bash
 cd crates/dew-wasm
-wasm-pack build --target web
+wasm-pack build --target web --out-dir ../../playground/src/wasm
 ```
+
+This generates TypeScript bindings in `playground/src/wasm/`.
