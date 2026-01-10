@@ -19,12 +19,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build WASM
+        run: wasm-pack build crates/dew-wasm --target web --out-dir ../../playground/src/wasm
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
 
-      - name: Install dependencies
+      - name: Install playground dependencies
+        working-directory: playground
+        run: bun install
+
+      - name: Build playground
+        working-directory: playground
+        run: bun run build
+
+      - name: Copy playground to docs
+        run: |
+          mkdir -p docs/public/playground
+          cp -r playground/dist/* docs/public/playground/
+
+      - name: Install docs dependencies
         working-directory: docs
         run: bun install
 

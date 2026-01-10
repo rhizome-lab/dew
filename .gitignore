@@ -10,6 +10,12 @@ Cargo.lock
 docs/node_modules/
 docs/.vitepress/cache/
 docs/.vitepress/dist/
+docs/public/playground/
+
+# Playground
+playground/node_modules/
+playground/dist/
+playground/src/wasm/
 
 # Editor
 .idea/

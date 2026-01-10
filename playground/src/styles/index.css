@@ -389,3 +389,20 @@ body {
   background: oklch(100% 0 0 / 0.08);
   box-shadow: 0 0 20px oklch(100% 0 0 / 0.1);
 }
+
+/* ============================================
+   LOADING INDICATOR
+   ============================================ */
+
+.loading-indicator {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--bg-element);
+  border-radius: var(--radius-sm);
+}
+
+.loading-indicator--warn {
+  color: var(--warning-color);
+  background: oklch(from var(--warning-color) l c h / 0.15);
+}
