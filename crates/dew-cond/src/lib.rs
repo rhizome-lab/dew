@@ -24,11 +24,12 @@
 //!
 //! # Features
 //!
-//! | Feature     | Description                           |
-//! |-------------|---------------------------------------|
-//! | `wgsl`      | WGSL code generation helpers          |
-//! | `lua`       | Lua code generation helpers           |
-//! | `cranelift` | Cranelift JIT compilation helpers     |
+//! | Feature       | Description                           |
+//! |---------------|---------------------------------------|
+//! | `wgsl`        | WGSL code generation helpers          |
+//! | `lua-codegen` | Lua code generation (pure Rust)       |
+//! | `lua`         | Alias for lua-codegen                 |
+//! | `cranelift`   | Cranelift JIT compilation helpers     |
 //!
 //! # Backend Modules
 //!
@@ -105,7 +106,7 @@ pub use rhizome_dew_core::CompareOp;
 #[cfg(feature = "wgsl")]
 pub mod wgsl;
 
-#[cfg(feature = "lua")]
+#[cfg(any(feature = "lua", feature = "lua-codegen"))]
 pub mod lua;
 
 #[cfg(feature = "cranelift")]

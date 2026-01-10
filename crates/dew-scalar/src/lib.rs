@@ -20,11 +20,12 @@
 //!
 //! # Features
 //!
-//! | Feature     | Description                                |
-//! |-------------|--------------------------------------------|
-//! | `wgsl`      | WGSL shader code generation                |
-//! | `lua`       | Lua code generation with mlua execution    |
-//! | `cranelift` | Cranelift JIT compilation                  |
+//! | Feature       | Description                                |
+//! |---------------|--------------------------------------------|
+//! | `wgsl`        | WGSL shader code generation                |
+//! | `lua-codegen` | Lua code generation (pure Rust, WASM-safe) |
+//! | `lua`         | Lua codegen + mlua execution               |
+//! | `cranelift`   | Cranelift JIT compilation                  |
 //!
 //! # Available Functions
 //!
@@ -133,7 +134,7 @@ use std::sync::Arc;
 #[cfg(feature = "wgsl")]
 pub mod wgsl;
 
-#[cfg(feature = "lua")]
+#[cfg(any(feature = "lua", feature = "lua-codegen"))]
 pub mod lua;
 
 #[cfg(feature = "cranelift")]

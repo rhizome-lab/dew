@@ -17,10 +17,15 @@ type WgslResult =
   | { ok: true; code: string }
   | { ok: false; error: string };
 
+type LuaResult =
+  | { ok: true; code: string }
+  | { ok: false; error: string };
+
 // WASM module interface
 interface DewWasm {
   parse: (input: string) => ParseResult;
   emit_wgsl: (input: string) => WgslResult;
+  emit_lua: (input: string) => LuaResult;
 }
 
 // Load WASM module
@@ -31,6 +36,7 @@ async function loadWasm(): Promise<DewWasm | null> {
     return {
       parse: wasm.parse,
       emit_wgsl: wasm.emit_wgsl,
+      emit_lua: wasm.emit_lua,
     };
   } catch (e) {
     console.warn('WASM not available, using mock parser:', e);
@@ -52,7 +58,7 @@ function mockParse(input: string): ParseResult {
 
 export function App() {
   const [expression, setExpression] = createSignal('sin(x) + cos(y) * 2');
-  const [activeTab, setActiveTab] = createSignal<'ast' | 'wgsl'>('ast');
+  const [activeTab, setActiveTab] = createSignal<'ast' | 'wgsl' | 'lua'>('ast');
   const [wasm] = createResource(loadWasm);
 
   const parseResult = createMemo((): ParseResult => {
@@ -67,6 +73,12 @@ export function App() {
     const w = wasm();
     if (!w) return { ok: false, error: 'WASM not loaded' };
     return w.emit_wgsl(expression());
+  });
+
+  const luaResult = createMemo((): LuaResult | null => {
+    const w = wasm();
+    if (!w) return { ok: false, error: 'WASM not loaded' };
+    return w.emit_lua(expression());
   });
 
   return (
@@ -111,6 +123,12 @@ export function App() {
               >
                 WGSL
               </button>
+              <button
+                class={`tabs__tab ${activeTab() === 'lua' ? 'tabs__tab--active' : ''}`}
+                onClick={() => setActiveTab('lua')}
+              >
+                Lua
+              </button>
             </div>
           </div>
           <div class="panel__content">
@@ -130,6 +148,15 @@ export function App() {
                 </div>
               }>
                 <pre class="code-block">{(wgslResult() as { ok: true; code: string }).code}</pre>
+              </Show>
+            </Show>
+            <Show when={activeTab() === 'lua'}>
+              <Show when={luaResult()?.ok} fallback={
+                <div class="output__value output__value--error">
+                  {(luaResult() as { ok: false; error: string })?.error || 'Error generating Lua'}
+                </div>
+              }>
+                <pre class="code-block">{(luaResult() as { ok: true; code: string }).code}</pre>
               </Show>
             </Show>
           </div>

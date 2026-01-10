@@ -137,15 +137,33 @@ pub fn emit_wgsl(input: &str) -> JsValue {
     result
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+/// Generate Lua code from an expression.
+#[wasm_bindgen]
+pub fn emit_lua(input: &str) -> JsValue {
+    use rhizome_dew_scalar::lua;
 
-    #[test]
-    fn test_parse_simple() {
-        // Just test that parsing doesn't panic
-        let _ = parse("1 + 2");
-        let _ = parse("sin(x)");
-        let _ = parse("if x > 0 then y else z");
-    }
+    let result = match Expr::parse(input) {
+        Ok(expr) => match lua::emit_lua(expr.ast()) {
+            Ok(lua_expr) => serde_wasm_bindgen::to_value(&serde_json::json!({
+                "ok": true,
+                "code": lua_expr.code,
+            }))
+            .unwrap_or(JsValue::NULL),
+            Err(e) => serde_wasm_bindgen::to_value(&serde_json::json!({
+                "ok": false,
+                "error": e.to_string(),
+            }))
+            .unwrap_or(JsValue::NULL),
+        },
+        Err(e) => serde_wasm_bindgen::to_value(&serde_json::json!({
+            "ok": false,
+            "error": e.to_string(),
+        }))
+        .unwrap_or(JsValue::NULL),
+    };
+
+    result
 }
+
+// Tests are run via wasm-bindgen-test in the browser or node environment
+// since they depend on JS interop that can't work on native targets

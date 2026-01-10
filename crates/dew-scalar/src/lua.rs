@@ -4,6 +4,8 @@
 
 use rhizome_dew_cond::lua as cond;
 use rhizome_dew_core::{Ast, BinOp, UnaryOp};
+
+#[cfg(feature = "lua")]
 use std::collections::HashMap;
 
 // ============================================================================
@@ -287,9 +289,10 @@ fn format_float(n: f32) -> String {
 }
 
 // ============================================================================
-// Execution via mlua
+// Execution via mlua (requires "lua" feature, not just "lua-codegen")
 // ============================================================================
 
+#[cfg(feature = "lua")]
 /// Compiles and evaluates an expression with mlua.
 pub fn eval_lua(ast: &Ast, vars: &HashMap<String, f32>) -> Result<f32, EvalError> {
     let lua = mlua::Lua::new();
@@ -305,6 +308,7 @@ pub fn eval_lua(ast: &Ast, vars: &HashMap<String, f32>) -> Result<f32, EvalError
         .map_err(EvalError::Lua)
 }
 
+#[cfg(feature = "lua")]
 /// Error during Lua evaluation.
 #[derive(Debug)]
 pub enum EvalError {
@@ -314,6 +318,7 @@ pub enum EvalError {
     Lua(mlua::Error),
 }
 
+#[cfg(feature = "lua")]
 impl std::fmt::Display for EvalError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -323,6 +328,7 @@ impl std::fmt::Display for EvalError {
     }
 }
 
+#[cfg(feature = "lua")]
 impl std::error::Error for EvalError {}
 
 // ============================================================================
@@ -339,12 +345,14 @@ mod tests {
         emit_lua(expr.ast()).unwrap().code
     }
 
+    #[cfg(feature = "lua")]
     fn eval(input: &str, vars: &[(&str, f32)]) -> f32 {
         let expr = Expr::parse(input).unwrap();
         let var_map: HashMap<String, f32> = vars.iter().map(|(k, v)| (k.to_string(), *v)).collect();
         eval_lua(expr.ast(), &var_map).unwrap()
     }
 
+    #[cfg(feature = "lua")]
     #[test]
     fn test_constants() {
         assert!((eval("pi()", &[]) - std::f32::consts::PI).abs() < 0.001);
@@ -352,6 +360,7 @@ mod tests {
         assert!((eval("tau()", &[]) - std::f32::consts::TAU).abs() < 0.001);
     }
 
+    #[cfg(feature = "lua")]
     #[test]
     fn test_trig() {
         assert!(eval("sin(0)", &[]).abs() < 0.001);
@@ -359,6 +368,7 @@ mod tests {
         assert!((eval("atan2(1, 1)", &[]) - std::f32::consts::FRAC_PI_4).abs() < 0.001);
     }
 
+    #[cfg(feature = "lua")]
     #[test]
     fn test_hyperbolic() {
         assert!(eval("sinh(0)", &[]).abs() < 0.001);
@@ -366,6 +376,7 @@ mod tests {
         assert!(eval("tanh(0)", &[]).abs() < 0.001);
     }
 
+    #[cfg(feature = "lua")]
     #[test]
     fn test_exp_log() {
         assert!((eval("exp(0)", &[]) - 1.0).abs() < 0.001);
@@ -378,6 +389,7 @@ mod tests {
         assert!((eval("inversesqrt(4)", &[]) - 0.5).abs() < 0.001);
     }
 
+    #[cfg(feature = "lua")]
     #[test]
     fn test_common() {
         assert_eq!(eval("abs(-5)", &[]), 5.0);
@@ -396,6 +408,7 @@ mod tests {
         assert_eq!(eval("saturate(1.5)", &[]), 1.0);
     }
 
+    #[cfg(feature = "lua")]
     #[test]
     fn test_interpolation() {
         assert_eq!(eval("lerp(0, 10, 0.5)", &[]), 5.0);
@@ -406,6 +419,7 @@ mod tests {
         assert_eq!(eval("inverse_lerp(0, 10, 5)", &[]), 0.5);
     }
 
+    #[cfg(feature = "lua")]
     #[test]
     fn test_remap() {
         assert_eq!(eval("remap(5, 0, 10, 0, 100)", &[]), 50.0);
@@ -425,6 +439,7 @@ mod tests {
         assert_eq!(compile("-x"), "-x");
     }
 
+    #[cfg(feature = "lua")]
     #[test]
     fn test_compare() {
         assert_eq!(eval("1 < 2", &[]), 1.0);
@@ -435,6 +450,7 @@ mod tests {
         assert_eq!(eval("x != 5", &[("x", 5.0)]), 0.0);
     }
 
+    #[cfg(feature = "lua")]
     #[test]
     fn test_if_then_else() {
         assert_eq!(eval("if 1 then 10 else 20", &[]), 10.0);
@@ -443,6 +459,7 @@ mod tests {
         assert_eq!(eval("if x > 5 then 1 else 0", &[("x", 3.0)]), 0.0);
     }
 
+    #[cfg(feature = "lua")]
     #[test]
     fn test_and_or() {
         assert_eq!(eval("1 and 1", &[]), 1.0);
@@ -451,6 +468,7 @@ mod tests {
         assert_eq!(eval("0 or 0", &[]), 0.0);
     }
 
+    #[cfg(feature = "lua")]
     #[test]
     fn test_not() {
         assert_eq!(eval("not 0", &[]), 1.0);

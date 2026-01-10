@@ -8,15 +8,13 @@ description = "Conditional and boolean support for dew expressions"
 [features]
 default = []
 wgsl = []
-lua = ["mlua"]
+lua-codegen = []  # Pure Rust codegen, no native deps
+lua = ["lua-codegen"]  # Alias for consistency (no execution in dew-cond)
 cranelift = ["cranelift-codegen", "cranelift-frontend", "cranelift-jit", "cranelift-module"]
 all = ["wgsl", "lua", "cranelift"]
 
 [dependencies]
 rhizome-dew-core = { workspace = true, features = ["cond"] }
-
-# Lua backend
-mlua = { version = "0.10", features = ["luajit", "vendored"], optional = true }
 
 # Cranelift backend
 cranelift-codegen = { version = "0.116", optional = true }

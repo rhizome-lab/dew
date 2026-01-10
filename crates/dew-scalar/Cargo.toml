@@ -8,7 +8,8 @@ description = "Standard scalar function library for dew expressions"
 [features]
 default = []
 wgsl = ["rhizome-dew-cond/wgsl"]
-lua = ["mlua", "rhizome-dew-cond/lua"]
+lua-codegen = ["rhizome-dew-cond/lua-codegen"]  # Pure Rust codegen, WASM-compatible
+lua = ["lua-codegen", "mlua"]  # Full Lua with execution via mlua
 cranelift = ["cranelift-codegen", "cranelift-frontend", "cranelift-jit", "cranelift-module", "rhizome-dew-cond/cranelift"]
 all = ["wgsl", "lua", "cranelift"]
 
