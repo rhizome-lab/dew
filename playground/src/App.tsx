@@ -84,6 +84,7 @@ export function App() {
   return (
     <div class="playground">
       <header class="playground__header">
+        <a href="/dew/" class="playground__back">&larr; Docs</a>
         <h1 class="playground__title">Dew Playground</h1>
         <Show when={wasm.loading}>
           <span class="loading-indicator">Loading WASM...</span>
