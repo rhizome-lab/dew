@@ -22,3 +22,12 @@ playground/src/wasm/
 .vscode/
 *.swp
 *~
+
+# Moss
+.moss/*
+!.moss/config.toml
+!.moss/duplicate-functions-allow
+!.moss/duplicate-types-allow
+!.moss/hotspots-allow
+!.moss/large-files-allow
+!.moss/memory/
