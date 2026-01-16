@@ -39,7 +39,7 @@ macro_rules! jit_call_outptr {
 use crate::Type;
 use cranelift_codegen::ir::immediates::Offset32;
 use cranelift_codegen::ir::{
-    AbiParam, FuncRef, InstBuilder, MemFlags, Value as CraneliftValue, types,
+    AbiParam, FuncRef, InstBuilder, MemFlags, Value as CraneliftValue, condcodes::FloatCC, types,
 };
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use cranelift_jit::{JITBuilder, JITModule};
@@ -1190,6 +1190,167 @@ fn compile_call(
             }
         }
 
+        "axis_angle" => {
+            // axis_angle(axis, angle) -> quaternion
+            // q = [normalize(axis) * sin(angle/2), cos(angle/2)]
+            if args.len() != 2 {
+                return Err(CraneliftError::UnknownFunction(name.to_string()));
+            }
+            match (&args[0], &args[1]) {
+                (TypedValue::Vec3(axis), TypedValue::Scalar(angle)) => {
+                    // Normalize the axis
+                    let ax2 = builder.ins().fmul(axis[0], axis[0]);
+                    let ay2 = builder.ins().fmul(axis[1], axis[1]);
+                    let az2 = builder.ins().fmul(axis[2], axis[2]);
+                    let xy_sum = builder.ins().fadd(ax2, ay2);
+                    let sum = builder.ins().fadd(xy_sum, az2);
+                    let len_call = builder.ins().call(math.sqrt, &[sum]);
+                    let len = builder.inst_results(len_call)[0];
+
+                    let ax_norm = builder.ins().fdiv(axis[0], len);
+                    let ay_norm = builder.ins().fdiv(axis[1], len);
+                    let az_norm = builder.ins().fdiv(axis[2], len);
+
+                    // half = angle / 2
+                    let two = builder.ins().f32const(2.0);
+                    let half = builder.ins().fdiv(*angle, two);
+
+                    // sin(half) and cos(half)
+                    let sin_call = builder.ins().call(math.sin, &[half]);
+                    let sin_half = builder.inst_results(sin_call)[0];
+                    let cos_call = builder.ins().call(math.cos, &[half]);
+                    let cos_half = builder.inst_results(cos_call)[0];
+
+                    // q = [axis_norm * sin_half, cos_half]
+                    let qx = builder.ins().fmul(ax_norm, sin_half);
+                    let qy = builder.ins().fmul(ay_norm, sin_half);
+                    let qz = builder.ins().fmul(az_norm, sin_half);
+
+                    Ok(TypedValue::Quaternion([qx, qy, qz, cos_half]))
+                }
+                _ => Err(CraneliftError::UnknownFunction(name.to_string())),
+            }
+        }
+
+        "slerp" => {
+            // slerp(q1, q2, t) -> quaternion
+            // Spherical linear interpolation with branchless selection
+            if args.len() != 3 {
+                return Err(CraneliftError::UnknownFunction(name.to_string()));
+            }
+            match (&args[0], &args[1], &args[2]) {
+                (TypedValue::Quaternion(q1), TypedValue::Quaternion(q2), TypedValue::Scalar(t)) => {
+                    // dot = q1 · q2
+                    let dot_x = builder.ins().fmul(q1[0], q2[0]);
+                    let dot_y = builder.ins().fmul(q1[1], q2[1]);
+                    let dot_z = builder.ins().fmul(q1[2], q2[2]);
+                    let dot_w = builder.ins().fmul(q1[3], q2[3]);
+                    let dot_xy = builder.ins().fadd(dot_x, dot_y);
+                    let dot_zw = builder.ins().fadd(dot_z, dot_w);
+                    let dot = builder.ins().fadd(dot_xy, dot_zw);
+
+                    // If dot < 0, negate q2 to take shorter path
+                    let zero = builder.ins().f32const(0.0);
+                    let neg_dot = builder.ins().fcmp(FloatCC::LessThan, dot, zero);
+
+                    // q2_adj = select(neg_dot, -q2, q2)
+                    let q2x_neg = builder.ins().fneg(q2[0]);
+                    let q2y_neg = builder.ins().fneg(q2[1]);
+                    let q2z_neg = builder.ins().fneg(q2[2]);
+                    let q2w_neg = builder.ins().fneg(q2[3]);
+                    let q2x_adj = builder.ins().select(neg_dot, q2x_neg, q2[0]);
+                    let q2y_adj = builder.ins().select(neg_dot, q2y_neg, q2[1]);
+                    let q2z_adj = builder.ins().select(neg_dot, q2z_neg, q2[2]);
+                    let q2w_adj = builder.ins().select(neg_dot, q2w_neg, q2[3]);
+
+                    // abs_dot = select(neg_dot, -dot, dot)
+                    let dot_neg = builder.ins().fneg(dot);
+                    let abs_dot = builder.ins().select(neg_dot, dot_neg, dot);
+
+                    // Check if nearly parallel: use_lerp = abs_dot > 0.9995
+                    let threshold = builder.ins().f32const(0.9995);
+                    let use_lerp = builder.ins().fcmp(FloatCC::GreaterThan, abs_dot, threshold);
+
+                    // theta = acos(abs_dot)
+                    let acos_call = builder.ins().call(math.acos, &[abs_dot]);
+                    let theta = builder.inst_results(acos_call)[0];
+
+                    // sin_theta = sin(theta)
+                    let sin_theta_call = builder.ins().call(math.sin, &[theta]);
+                    let sin_theta = builder.inst_results(sin_theta_call)[0];
+
+                    // t1 = (1 - t) * theta
+                    let one = builder.ins().f32const(1.0);
+                    let one_minus_t = builder.ins().fsub(one, *t);
+                    let t1_theta = builder.ins().fmul(one_minus_t, theta);
+                    let sin_t1_call = builder.ins().call(math.sin, &[t1_theta]);
+                    let sin_t1 = builder.inst_results(sin_t1_call)[0];
+
+                    // t2 = t * theta
+                    let t2_theta = builder.ins().fmul(*t, theta);
+                    let sin_t2_call = builder.ins().call(math.sin, &[t2_theta]);
+                    let sin_t2 = builder.inst_results(sin_t2_call)[0];
+
+                    // slerp_result = (q1 * sin_t1 + q2_adj * sin_t2) / sin_theta
+                    let q1x_sin = builder.ins().fmul(q1[0], sin_t1);
+                    let q2x_sin = builder.ins().fmul(q2x_adj, sin_t2);
+                    let s_x = builder.ins().fadd(q1x_sin, q2x_sin);
+                    let q1y_sin = builder.ins().fmul(q1[1], sin_t1);
+                    let q2y_sin = builder.ins().fmul(q2y_adj, sin_t2);
+                    let s_y = builder.ins().fadd(q1y_sin, q2y_sin);
+                    let q1z_sin = builder.ins().fmul(q1[2], sin_t1);
+                    let q2z_sin = builder.ins().fmul(q2z_adj, sin_t2);
+                    let s_z = builder.ins().fadd(q1z_sin, q2z_sin);
+                    let q1w_sin = builder.ins().fmul(q1[3], sin_t1);
+                    let q2w_sin = builder.ins().fmul(q2w_adj, sin_t2);
+                    let s_w = builder.ins().fadd(q1w_sin, q2w_sin);
+                    let slerp_x = builder.ins().fdiv(s_x, sin_theta);
+                    let slerp_y = builder.ins().fdiv(s_y, sin_theta);
+                    let slerp_z = builder.ins().fdiv(s_z, sin_theta);
+                    let slerp_w = builder.ins().fdiv(s_w, sin_theta);
+
+                    // lerp_result = normalize(q1 * (1-t) + q2_adj * t)
+                    let q1x_lerp = builder.ins().fmul(q1[0], one_minus_t);
+                    let q2x_lerp = builder.ins().fmul(q2x_adj, *t);
+                    let l_x = builder.ins().fadd(q1x_lerp, q2x_lerp);
+                    let q1y_lerp = builder.ins().fmul(q1[1], one_minus_t);
+                    let q2y_lerp = builder.ins().fmul(q2y_adj, *t);
+                    let l_y = builder.ins().fadd(q1y_lerp, q2y_lerp);
+                    let q1z_lerp = builder.ins().fmul(q1[2], one_minus_t);
+                    let q2z_lerp = builder.ins().fmul(q2z_adj, *t);
+                    let l_z = builder.ins().fadd(q1z_lerp, q2z_lerp);
+                    let q1w_lerp = builder.ins().fmul(q1[3], one_minus_t);
+                    let q2w_lerp = builder.ins().fmul(q2w_adj, *t);
+                    let l_w = builder.ins().fadd(q1w_lerp, q2w_lerp);
+                    // Normalize lerp result
+                    let lx2 = builder.ins().fmul(l_x, l_x);
+                    let ly2 = builder.ins().fmul(l_y, l_y);
+                    let lz2 = builder.ins().fmul(l_z, l_z);
+                    let lw2 = builder.ins().fmul(l_w, l_w);
+                    let lxy = builder.ins().fadd(lx2, ly2);
+                    let lzw = builder.ins().fadd(lz2, lw2);
+                    let lerp_len_sq = builder.ins().fadd(lxy, lzw);
+                    let lerp_len_call = builder.ins().call(math.sqrt, &[lerp_len_sq]);
+                    let lerp_len = builder.inst_results(lerp_len_call)[0];
+                    let lerp_x = builder.ins().fdiv(l_x, lerp_len);
+                    let lerp_y = builder.ins().fdiv(l_y, lerp_len);
+                    let lerp_z = builder.ins().fdiv(l_z, lerp_len);
+                    let lerp_w = builder.ins().fdiv(l_w, lerp_len);
+
+                    // Select between lerp and slerp
+                    let result_x = builder.ins().select(use_lerp, lerp_x, slerp_x);
+                    let result_y = builder.ins().select(use_lerp, lerp_y, slerp_y);
+                    let result_z = builder.ins().select(use_lerp, lerp_z, slerp_z);
+                    let result_w = builder.ins().select(use_lerp, lerp_w, slerp_w);
+
+                    Ok(TypedValue::Quaternion([
+                        result_x, result_y, result_z, result_w,
+                    ]))
+                }
+                _ => Err(CraneliftError::UnknownFunction(name.to_string())),
+            }
+        }
+
         _ => Err(CraneliftError::UnknownFunction(name.to_string())),
     }
 }
@@ -1349,5 +1510,110 @@ mod tests {
         assert!(approx_eq(y, -2.0));
         assert!(approx_eq(z, -3.0));
         assert!(approx_eq(w, 4.0));
+    }
+
+    #[test]
+    fn test_axis_angle() {
+        // 90° rotation around Z axis
+        // half angle = 45°, sin(45°) ≈ 0.7071, cos(45°) ≈ 0.7071
+        let expr = Expr::parse("axis_angle(axis, angle)").unwrap();
+        let jit = QuaternionJit::new().unwrap();
+        let func = jit
+            .compile_quaternion(
+                expr.ast(),
+                &[
+                    VarSpec::new("axis", Type::Vec3),
+                    VarSpec::new("angle", Type::Scalar),
+                ],
+            )
+            .unwrap();
+        let angle = std::f32::consts::FRAC_PI_2; // 90°
+        let [x, y, z, w] = func.call(&[0.0, 0.0, 1.0, angle]);
+        assert!(approx_eq(x, 0.0));
+        assert!(approx_eq(y, 0.0));
+        assert!(approx_eq(z, std::f32::consts::FRAC_PI_4.sin())); // sin(45°)
+        assert!(approx_eq(w, std::f32::consts::FRAC_PI_4.cos())); // cos(45°)
+    }
+
+    #[test]
+    fn test_axis_angle_identity() {
+        // 0° rotation should give identity quaternion [0, 0, 0, 1]
+        let expr = Expr::parse("axis_angle(axis, angle)").unwrap();
+        let jit = QuaternionJit::new().unwrap();
+        let func = jit
+            .compile_quaternion(
+                expr.ast(),
+                &[
+                    VarSpec::new("axis", Type::Vec3),
+                    VarSpec::new("angle", Type::Scalar),
+                ],
+            )
+            .unwrap();
+        let [x, y, z, w] = func.call(&[1.0, 0.0, 0.0, 0.0]); // angle = 0
+        assert!(approx_eq(x, 0.0));
+        assert!(approx_eq(y, 0.0));
+        assert!(approx_eq(z, 0.0));
+        assert!(approx_eq(w, 1.0));
+    }
+
+    #[test]
+    fn test_slerp_endpoints() {
+        // slerp at t=0 should return q1, at t=1 should return q2
+        let expr = Expr::parse("slerp(q1, q2, t)").unwrap();
+        let jit = QuaternionJit::new().unwrap();
+        let func = jit
+            .compile_quaternion(
+                expr.ast(),
+                &[
+                    VarSpec::new("q1", Type::Quaternion),
+                    VarSpec::new("q2", Type::Quaternion),
+                    VarSpec::new("t", Type::Scalar),
+                ],
+            )
+            .unwrap();
+
+        // q1 = identity [0, 0, 0, 1], q2 = 90° around Z [0, 0, sin(45°), cos(45°)]
+        let sin45 = std::f32::consts::FRAC_PI_4.sin();
+        let cos45 = std::f32::consts::FRAC_PI_4.cos();
+
+        // t = 0 → q1
+        let [x, y, z, w] = func.call(&[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, sin45, cos45, 0.0]);
+        assert!(approx_eq(x, 0.0));
+        assert!(approx_eq(y, 0.0));
+        assert!(approx_eq(z, 0.0));
+        assert!(approx_eq(w, 1.0));
+
+        // t = 1 → q2
+        let [x, y, z, w] = func.call(&[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, sin45, cos45, 1.0]);
+        assert!(approx_eq(x, 0.0));
+        assert!(approx_eq(y, 0.0));
+        assert!(approx_eq(z, sin45));
+        assert!(approx_eq(w, cos45));
+    }
+
+    #[test]
+    fn test_slerp_midpoint() {
+        // slerp between identity and 180° rotation around Z should give 90° at t=0.5
+        let expr = Expr::parse("slerp(q1, q2, t)").unwrap();
+        let jit = QuaternionJit::new().unwrap();
+        let func = jit
+            .compile_quaternion(
+                expr.ast(),
+                &[
+                    VarSpec::new("q1", Type::Quaternion),
+                    VarSpec::new("q2", Type::Quaternion),
+                    VarSpec::new("t", Type::Scalar),
+                ],
+            )
+            .unwrap();
+
+        // q1 = identity [0, 0, 0, 1]
+        // q2 = 180° around Z = [0, 0, 1, 0] (sin(90°)=1, cos(90°)=0)
+        let [x, y, z, w] = func.call(&[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.5]);
+        // Should be 90° rotation: [0, 0, sin(45°), cos(45°)]
+        assert!(approx_eq(x, 0.0));
+        assert!(approx_eq(y, 0.0));
+        assert!(approx_eq(z, std::f32::consts::FRAC_PI_4.sin()));
+        assert!(approx_eq(w, std::f32::consts::FRAC_PI_4.cos()));
     }
 }
