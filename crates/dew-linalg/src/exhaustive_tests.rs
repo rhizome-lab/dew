@@ -826,6 +826,7 @@ mod wgsl_tests {
 #[cfg(feature = "cranelift")]
 mod cranelift_tests {
     use super::*;
+    use crate::Type;
     use crate::cranelift::{LinalgJit, VarSpec};
 
     fn compile_and_run(expr_str: &str, vars: &[VarSpec], args: &[f32]) -> f32 {
