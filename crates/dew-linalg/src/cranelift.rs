@@ -143,6 +143,9 @@ pub enum TypedValue {
     /// Mat3 stored as 9 values (column-major)
     #[cfg(feature = "3d")]
     Mat3([CraneliftValue; 9]),
+    /// Mat4 stored as 16 values (column-major)
+    #[cfg(feature = "4d")]
+    Mat4([CraneliftValue; 16]),
 }
 
 impl TypedValue {
@@ -157,6 +160,8 @@ impl TypedValue {
             TypedValue::Mat2(_) => Type::Mat2,
             #[cfg(feature = "3d")]
             TypedValue::Mat3(_) => Type::Mat3,
+            #[cfg(feature = "4d")]
+            TypedValue::Mat4(_) => Type::Mat4,
         }
     }
 
@@ -202,6 +207,14 @@ impl TypedValue {
     fn as_mat3(&self) -> Option<[CraneliftValue; 9]> {
         match self {
             TypedValue::Mat3(m) => Some(*m),
+            _ => None,
+        }
+    }
+
+    #[cfg(feature = "4d")]
+    fn as_mat4(&self) -> Option<[CraneliftValue; 16]> {
+        match self {
+            TypedValue::Mat4(m) => Some(*m),
             _ => None,
         }
     }
@@ -468,6 +481,115 @@ impl CompiledVec3Fn {
     }
 }
 
+/// A compiled linalg function that returns a Vec4 (four f32s).
+/// Uses output pointer approach for reliable ABI handling.
+#[cfg(feature = "4d")]
+pub struct CompiledVec4Fn {
+    _module: JITModule,
+    func_ptr: *const u8,
+    param_count: usize,
+}
+
+#[cfg(feature = "4d")]
+unsafe impl Send for CompiledVec4Fn {}
+#[cfg(feature = "4d")]
+unsafe impl Sync for CompiledVec4Fn {}
+
+#[cfg(feature = "4d")]
+impl CompiledVec4Fn {
+    /// Calls the compiled function, returning a Vec4 as [x, y, z, w].
+    pub fn call(&self, args: &[f32]) -> [f32; 4] {
+        assert_eq!(args.len(), self.param_count, "wrong number of arguments");
+
+        let mut output = [0.0f32; 4];
+        let out_ptr = output.as_mut_ptr();
+
+        unsafe {
+            match self.param_count {
+                0 => jit_call_outptr!(self.func_ptr, args, out_ptr, []),
+                1 => jit_call_outptr!(self.func_ptr, args, out_ptr, [0]),
+                2 => jit_call_outptr!(self.func_ptr, args, out_ptr, [0, 1]),
+                3 => jit_call_outptr!(self.func_ptr, args, out_ptr, [0, 1, 2]),
+                4 => jit_call_outptr!(self.func_ptr, args, out_ptr, [0, 1, 2, 3]),
+                5 => jit_call_outptr!(self.func_ptr, args, out_ptr, [0, 1, 2, 3, 4]),
+                6 => jit_call_outptr!(self.func_ptr, args, out_ptr, [0, 1, 2, 3, 4, 5]),
+                7 => jit_call_outptr!(self.func_ptr, args, out_ptr, [0, 1, 2, 3, 4, 5, 6]),
+                8 => jit_call_outptr!(self.func_ptr, args, out_ptr, [0, 1, 2, 3, 4, 5, 6, 7]),
+                9 => jit_call_outptr!(self.func_ptr, args, out_ptr, [0, 1, 2, 3, 4, 5, 6, 7, 8]),
+                10 => {
+                    jit_call_outptr!(self.func_ptr, args, out_ptr, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+                }
+                11 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                ),
+                12 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+                ),
+                13 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+                ),
+                14 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+                ),
+                15 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+                ),
+                16 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+                ),
+                17 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+                ),
+                18 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+                ),
+                19 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [
+                        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
+                    ]
+                ),
+                20 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [
+                        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
+                    ]
+                ),
+                _ => panic!("too many parameters (max 20)"),
+            };
+        }
+        output
+    }
+}
+
 /// A compiled linalg function that returns a Mat2 (four f32s).
 /// Uses output pointer approach for reliable ABI handling.
 pub struct CompiledMat2Fn {
@@ -638,6 +760,222 @@ impl CompiledMat3Fn {
     }
 }
 
+/// A compiled linalg function that returns a Mat4 (sixteen f32s).
+/// Uses output pointer approach for reliable ABI handling.
+#[cfg(feature = "4d")]
+pub struct CompiledMat4Fn {
+    _module: JITModule,
+    func_ptr: *const u8,
+    param_count: usize,
+}
+
+#[cfg(feature = "4d")]
+unsafe impl Send for CompiledMat4Fn {}
+#[cfg(feature = "4d")]
+unsafe impl Sync for CompiledMat4Fn {}
+
+#[cfg(feature = "4d")]
+impl CompiledMat4Fn {
+    /// Calls the compiled function, returning a Mat4 as 16 f32s (column-major).
+    pub fn call(&self, args: &[f32]) -> [f32; 16] {
+        assert_eq!(args.len(), self.param_count, "wrong number of arguments");
+
+        let mut output = [0.0f32; 16];
+        let out_ptr = output.as_mut_ptr();
+
+        unsafe {
+            match self.param_count {
+                0 => jit_call_outptr!(self.func_ptr, args, out_ptr, []),
+                1 => jit_call_outptr!(self.func_ptr, args, out_ptr, [0]),
+                2 => jit_call_outptr!(self.func_ptr, args, out_ptr, [0, 1]),
+                3 => jit_call_outptr!(self.func_ptr, args, out_ptr, [0, 1, 2]),
+                4 => jit_call_outptr!(self.func_ptr, args, out_ptr, [0, 1, 2, 3]),
+                5 => jit_call_outptr!(self.func_ptr, args, out_ptr, [0, 1, 2, 3, 4]),
+                6 => jit_call_outptr!(self.func_ptr, args, out_ptr, [0, 1, 2, 3, 4, 5]),
+                7 => jit_call_outptr!(self.func_ptr, args, out_ptr, [0, 1, 2, 3, 4, 5, 6]),
+                8 => jit_call_outptr!(self.func_ptr, args, out_ptr, [0, 1, 2, 3, 4, 5, 6, 7]),
+                9 => jit_call_outptr!(self.func_ptr, args, out_ptr, [0, 1, 2, 3, 4, 5, 6, 7, 8]),
+                10 => {
+                    jit_call_outptr!(self.func_ptr, args, out_ptr, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+                }
+                11 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                ),
+                12 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+                ),
+                13 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+                ),
+                14 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+                ),
+                15 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+                ),
+                16 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+                ),
+                17 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+                ),
+                18 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+                ),
+                19 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [
+                        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
+                    ]
+                ),
+                20 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [
+                        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
+                    ]
+                ),
+                21 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [
+                        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20
+                    ]
+                ),
+                22 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [
+                        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                        21
+                    ]
+                ),
+                23 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [
+                        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                        21, 22
+                    ]
+                ),
+                24 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [
+                        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                        21, 22, 23
+                    ]
+                ),
+                25 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [
+                        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                        21, 22, 23, 24
+                    ]
+                ),
+                26 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [
+                        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                        21, 22, 23, 24, 25
+                    ]
+                ),
+                27 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [
+                        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                        21, 22, 23, 24, 25, 26
+                    ]
+                ),
+                28 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [
+                        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                        21, 22, 23, 24, 25, 26, 27
+                    ]
+                ),
+                29 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [
+                        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                        21, 22, 23, 24, 25, 26, 27, 28
+                    ]
+                ),
+                30 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [
+                        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                        21, 22, 23, 24, 25, 26, 27, 28, 29
+                    ]
+                ),
+                31 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [
+                        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                        21, 22, 23, 24, 25, 26, 27, 28, 29, 30
+                    ]
+                ),
+                32 => jit_call_outptr!(
+                    self.func_ptr,
+                    args,
+                    out_ptr,
+                    [
+                        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                        21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31
+                    ]
+                ),
+                _ => panic!("too many parameters (max 32)"),
+            };
+        }
+        output
+    }
+}
+
 // ============================================================================
 // JIT Compiler
 // ============================================================================
@@ -758,7 +1096,55 @@ impl LinalgJit {
                         param_idx += 4;
                         v
                     }
-                    _ => return Err(CraneliftError::UnsupportedReturnType(var.typ)),
+                    Type::Mat2 => {
+                        let v = TypedValue::Mat2([
+                            block_params[param_idx],
+                            block_params[param_idx + 1],
+                            block_params[param_idx + 2],
+                            block_params[param_idx + 3],
+                        ]);
+                        param_idx += 4;
+                        v
+                    }
+                    #[cfg(feature = "3d")]
+                    Type::Mat3 => {
+                        let v = TypedValue::Mat3([
+                            block_params[param_idx],
+                            block_params[param_idx + 1],
+                            block_params[param_idx + 2],
+                            block_params[param_idx + 3],
+                            block_params[param_idx + 4],
+                            block_params[param_idx + 5],
+                            block_params[param_idx + 6],
+                            block_params[param_idx + 7],
+                            block_params[param_idx + 8],
+                        ]);
+                        param_idx += 9;
+                        v
+                    }
+                    #[cfg(feature = "4d")]
+                    Type::Mat4 => {
+                        let v = TypedValue::Mat4([
+                            block_params[param_idx],
+                            block_params[param_idx + 1],
+                            block_params[param_idx + 2],
+                            block_params[param_idx + 3],
+                            block_params[param_idx + 4],
+                            block_params[param_idx + 5],
+                            block_params[param_idx + 6],
+                            block_params[param_idx + 7],
+                            block_params[param_idx + 8],
+                            block_params[param_idx + 9],
+                            block_params[param_idx + 10],
+                            block_params[param_idx + 11],
+                            block_params[param_idx + 12],
+                            block_params[param_idx + 13],
+                            block_params[param_idx + 14],
+                            block_params[param_idx + 15],
+                        ]);
+                        param_idx += 16;
+                        v
+                    }
                 };
                 var_map.insert(var.name.clone(), typed_val);
             }
@@ -914,6 +1300,29 @@ impl LinalgJit {
                             block_params[param_idx + 8],
                         ]);
                         param_idx += 9;
+                        v
+                    }
+                    #[cfg(feature = "4d")]
+                    Type::Mat4 => {
+                        let v = TypedValue::Mat4([
+                            block_params[param_idx],
+                            block_params[param_idx + 1],
+                            block_params[param_idx + 2],
+                            block_params[param_idx + 3],
+                            block_params[param_idx + 4],
+                            block_params[param_idx + 5],
+                            block_params[param_idx + 6],
+                            block_params[param_idx + 7],
+                            block_params[param_idx + 8],
+                            block_params[param_idx + 9],
+                            block_params[param_idx + 10],
+                            block_params[param_idx + 11],
+                            block_params[param_idx + 12],
+                            block_params[param_idx + 13],
+                            block_params[param_idx + 14],
+                            block_params[param_idx + 15],
+                        ]);
+                        param_idx += 16;
                         v
                     }
                 };
@@ -1079,6 +1488,29 @@ impl LinalgJit {
                         param_idx += 9;
                         v
                     }
+                    #[cfg(feature = "4d")]
+                    Type::Mat4 => {
+                        let v = TypedValue::Mat4([
+                            block_params[param_idx],
+                            block_params[param_idx + 1],
+                            block_params[param_idx + 2],
+                            block_params[param_idx + 3],
+                            block_params[param_idx + 4],
+                            block_params[param_idx + 5],
+                            block_params[param_idx + 6],
+                            block_params[param_idx + 7],
+                            block_params[param_idx + 8],
+                            block_params[param_idx + 9],
+                            block_params[param_idx + 10],
+                            block_params[param_idx + 11],
+                            block_params[param_idx + 12],
+                            block_params[param_idx + 13],
+                            block_params[param_idx + 14],
+                            block_params[param_idx + 15],
+                        ]);
+                        param_idx += 16;
+                        v
+                    }
                 };
                 var_map.insert(var.name.clone(), typed_val);
             }
@@ -1117,6 +1549,195 @@ impl LinalgJit {
         let func_ptr = module.get_finalized_function(func_id);
 
         Ok(CompiledVec3Fn {
+            _module: module,
+            func_ptr,
+            param_count: total_params,
+        })
+    }
+
+    /// Compiles an expression that returns a Vec4.
+    #[cfg(feature = "4d")]
+    pub fn compile_vec4(
+        self,
+        ast: &Ast,
+        vars: &[VarSpec],
+    ) -> Result<CompiledVec4Fn, CraneliftError> {
+        let mut module = JITModule::new(self.builder);
+        let mut ctx = module.make_context();
+
+        let sqrt_sig = {
+            let mut sig = module.make_signature();
+            sig.params.push(AbiParam::new(types::F32));
+            sig.returns.push(AbiParam::new(types::F32));
+            sig
+        };
+        let pow_sig = {
+            let mut sig = module.make_signature();
+            sig.params.push(AbiParam::new(types::F32));
+            sig.params.push(AbiParam::new(types::F32));
+            sig.returns.push(AbiParam::new(types::F32));
+            sig
+        };
+
+        let sqrt_id = module
+            .declare_function("linalg_sqrt", Linkage::Import, &sqrt_sig)
+            .map_err(|e| CraneliftError::JitError(e.to_string()))?;
+        let pow_id = module
+            .declare_function("linalg_pow", Linkage::Import, &pow_sig)
+            .map_err(|e| CraneliftError::JitError(e.to_string()))?;
+
+        let total_params: usize = vars.iter().map(|v| v.param_count()).sum();
+        let ptr_type = module.target_config().pointer_type();
+        let mut sig = module.make_signature();
+        for _ in 0..total_params {
+            sig.params.push(AbiParam::new(types::F32));
+        }
+        sig.params.push(AbiParam::new(ptr_type));
+
+        let func_id = module
+            .declare_function("linalg_expr", Linkage::Export, &sig)
+            .map_err(|e| CraneliftError::JitError(e.to_string()))?;
+
+        ctx.func.signature = sig;
+
+        let mut builder_ctx = FunctionBuilderContext::new();
+        {
+            let mut builder = FunctionBuilder::new(&mut ctx.func, &mut builder_ctx);
+            let entry_block = builder.create_block();
+            builder.append_block_params_for_function_params(entry_block);
+            builder.switch_to_block(entry_block);
+            builder.seal_block(entry_block);
+
+            let sqrt_ref = module.declare_func_in_func(sqrt_id, builder.func);
+            let pow_ref = module.declare_func_in_func(pow_id, builder.func);
+
+            let block_params = builder.block_params(entry_block).to_vec();
+            let out_ptr = block_params[total_params];
+            let mut var_map: HashMap<String, TypedValue> = HashMap::new();
+            let mut param_idx = 0;
+
+            for var in vars {
+                let typed_val = match var.typ {
+                    Type::Scalar => {
+                        let v = TypedValue::Scalar(block_params[param_idx]);
+                        param_idx += 1;
+                        v
+                    }
+                    Type::Vec2 => {
+                        let v = TypedValue::Vec2([
+                            block_params[param_idx],
+                            block_params[param_idx + 1],
+                        ]);
+                        param_idx += 2;
+                        v
+                    }
+                    Type::Vec3 => {
+                        let v = TypedValue::Vec3([
+                            block_params[param_idx],
+                            block_params[param_idx + 1],
+                            block_params[param_idx + 2],
+                        ]);
+                        param_idx += 3;
+                        v
+                    }
+                    Type::Vec4 => {
+                        let v = TypedValue::Vec4([
+                            block_params[param_idx],
+                            block_params[param_idx + 1],
+                            block_params[param_idx + 2],
+                            block_params[param_idx + 3],
+                        ]);
+                        param_idx += 4;
+                        v
+                    }
+                    Type::Mat2 => {
+                        let v = TypedValue::Mat2([
+                            block_params[param_idx],
+                            block_params[param_idx + 1],
+                            block_params[param_idx + 2],
+                            block_params[param_idx + 3],
+                        ]);
+                        param_idx += 4;
+                        v
+                    }
+                    Type::Mat3 => {
+                        let v = TypedValue::Mat3([
+                            block_params[param_idx],
+                            block_params[param_idx + 1],
+                            block_params[param_idx + 2],
+                            block_params[param_idx + 3],
+                            block_params[param_idx + 4],
+                            block_params[param_idx + 5],
+                            block_params[param_idx + 6],
+                            block_params[param_idx + 7],
+                            block_params[param_idx + 8],
+                        ]);
+                        param_idx += 9;
+                        v
+                    }
+                    Type::Mat4 => {
+                        let v = TypedValue::Mat4([
+                            block_params[param_idx],
+                            block_params[param_idx + 1],
+                            block_params[param_idx + 2],
+                            block_params[param_idx + 3],
+                            block_params[param_idx + 4],
+                            block_params[param_idx + 5],
+                            block_params[param_idx + 6],
+                            block_params[param_idx + 7],
+                            block_params[param_idx + 8],
+                            block_params[param_idx + 9],
+                            block_params[param_idx + 10],
+                            block_params[param_idx + 11],
+                            block_params[param_idx + 12],
+                            block_params[param_idx + 13],
+                            block_params[param_idx + 14],
+                            block_params[param_idx + 15],
+                        ]);
+                        param_idx += 16;
+                        v
+                    }
+                };
+                var_map.insert(var.name.clone(), typed_val);
+            }
+
+            let math_funcs = MathFuncs {
+                sqrt: sqrt_ref,
+                pow: pow_ref,
+            };
+            let result = compile_ast(ast, &mut builder, &var_map, &math_funcs)?;
+
+            let [x, y, z, w] = result
+                .as_vec4()
+                .ok_or(CraneliftError::UnsupportedReturnType(result.typ()))?;
+
+            builder
+                .ins()
+                .store(MemFlags::new(), x, out_ptr, Offset32::new(0));
+            builder
+                .ins()
+                .store(MemFlags::new(), y, out_ptr, Offset32::new(4));
+            builder
+                .ins()
+                .store(MemFlags::new(), z, out_ptr, Offset32::new(8));
+            builder
+                .ins()
+                .store(MemFlags::new(), w, out_ptr, Offset32::new(12));
+            builder.ins().return_(&[]);
+            builder.finalize();
+        }
+
+        module
+            .define_function(func_id, &mut ctx)
+            .map_err(|e| CraneliftError::JitError(e.to_string()))?;
+        module.clear_context(&mut ctx);
+        module
+            .finalize_definitions()
+            .map_err(|e| CraneliftError::JitError(e.to_string()))?;
+
+        let func_ptr = module.get_finalized_function(func_id);
+
+        Ok(CompiledVec4Fn {
             _module: module,
             func_ptr,
             param_count: total_params,
@@ -1244,6 +1865,29 @@ impl LinalgJit {
                             block_params[param_idx + 8],
                         ]);
                         param_idx += 9;
+                        v
+                    }
+                    #[cfg(feature = "4d")]
+                    Type::Mat4 => {
+                        let v = TypedValue::Mat4([
+                            block_params[param_idx],
+                            block_params[param_idx + 1],
+                            block_params[param_idx + 2],
+                            block_params[param_idx + 3],
+                            block_params[param_idx + 4],
+                            block_params[param_idx + 5],
+                            block_params[param_idx + 6],
+                            block_params[param_idx + 7],
+                            block_params[param_idx + 8],
+                            block_params[param_idx + 9],
+                            block_params[param_idx + 10],
+                            block_params[param_idx + 11],
+                            block_params[param_idx + 12],
+                            block_params[param_idx + 13],
+                            block_params[param_idx + 14],
+                            block_params[param_idx + 15],
+                        ]);
+                        param_idx += 16;
                         v
                     }
                 };
@@ -1411,6 +2055,29 @@ impl LinalgJit {
                         param_idx += 9;
                         v
                     }
+                    #[cfg(feature = "4d")]
+                    Type::Mat4 => {
+                        let v = TypedValue::Mat4([
+                            block_params[param_idx],
+                            block_params[param_idx + 1],
+                            block_params[param_idx + 2],
+                            block_params[param_idx + 3],
+                            block_params[param_idx + 4],
+                            block_params[param_idx + 5],
+                            block_params[param_idx + 6],
+                            block_params[param_idx + 7],
+                            block_params[param_idx + 8],
+                            block_params[param_idx + 9],
+                            block_params[param_idx + 10],
+                            block_params[param_idx + 11],
+                            block_params[param_idx + 12],
+                            block_params[param_idx + 13],
+                            block_params[param_idx + 14],
+                            block_params[param_idx + 15],
+                        ]);
+                        param_idx += 16;
+                        v
+                    }
                 };
                 var_map.insert(var.name.clone(), typed_val);
             }
@@ -1448,6 +2115,191 @@ impl LinalgJit {
         let func_ptr = module.get_finalized_function(func_id);
 
         Ok(CompiledMat3Fn {
+            _module: module,
+            func_ptr,
+            param_count: total_params,
+        })
+    }
+
+    /// Compiles an expression that returns a Mat4.
+    #[cfg(feature = "4d")]
+    pub fn compile_mat4(
+        self,
+        ast: &Ast,
+        vars: &[VarSpec],
+    ) -> Result<CompiledMat4Fn, CraneliftError> {
+        let mut module = JITModule::new(self.builder);
+        let mut ctx = module.make_context();
+
+        let sqrt_sig = {
+            let mut sig = module.make_signature();
+            sig.params.push(AbiParam::new(types::F32));
+            sig.returns.push(AbiParam::new(types::F32));
+            sig
+        };
+        let pow_sig = {
+            let mut sig = module.make_signature();
+            sig.params.push(AbiParam::new(types::F32));
+            sig.params.push(AbiParam::new(types::F32));
+            sig.returns.push(AbiParam::new(types::F32));
+            sig
+        };
+
+        let sqrt_id = module
+            .declare_function("linalg_sqrt", Linkage::Import, &sqrt_sig)
+            .map_err(|e| CraneliftError::JitError(e.to_string()))?;
+        let pow_id = module
+            .declare_function("linalg_pow", Linkage::Import, &pow_sig)
+            .map_err(|e| CraneliftError::JitError(e.to_string()))?;
+
+        let total_params: usize = vars.iter().map(|v| v.param_count()).sum();
+        let ptr_type = module.target_config().pointer_type();
+        let mut sig = module.make_signature();
+        for _ in 0..total_params {
+            sig.params.push(AbiParam::new(types::F32));
+        }
+        sig.params.push(AbiParam::new(ptr_type));
+
+        let func_id = module
+            .declare_function("linalg_expr", Linkage::Export, &sig)
+            .map_err(|e| CraneliftError::JitError(e.to_string()))?;
+
+        ctx.func.signature = sig;
+
+        let mut builder_ctx = FunctionBuilderContext::new();
+        {
+            let mut builder = FunctionBuilder::new(&mut ctx.func, &mut builder_ctx);
+            let entry_block = builder.create_block();
+            builder.append_block_params_for_function_params(entry_block);
+            builder.switch_to_block(entry_block);
+            builder.seal_block(entry_block);
+
+            let sqrt_ref = module.declare_func_in_func(sqrt_id, builder.func);
+            let pow_ref = module.declare_func_in_func(pow_id, builder.func);
+
+            let block_params = builder.block_params(entry_block).to_vec();
+            let out_ptr = block_params[total_params];
+            let mut var_map: HashMap<String, TypedValue> = HashMap::new();
+            let mut param_idx = 0;
+
+            for var in vars {
+                let typed_val = match var.typ {
+                    Type::Scalar => {
+                        let v = TypedValue::Scalar(block_params[param_idx]);
+                        param_idx += 1;
+                        v
+                    }
+                    Type::Vec2 => {
+                        let v = TypedValue::Vec2([
+                            block_params[param_idx],
+                            block_params[param_idx + 1],
+                        ]);
+                        param_idx += 2;
+                        v
+                    }
+                    Type::Vec3 => {
+                        let v = TypedValue::Vec3([
+                            block_params[param_idx],
+                            block_params[param_idx + 1],
+                            block_params[param_idx + 2],
+                        ]);
+                        param_idx += 3;
+                        v
+                    }
+                    Type::Vec4 => {
+                        let v = TypedValue::Vec4([
+                            block_params[param_idx],
+                            block_params[param_idx + 1],
+                            block_params[param_idx + 2],
+                            block_params[param_idx + 3],
+                        ]);
+                        param_idx += 4;
+                        v
+                    }
+                    Type::Mat2 => {
+                        let v = TypedValue::Mat2([
+                            block_params[param_idx],
+                            block_params[param_idx + 1],
+                            block_params[param_idx + 2],
+                            block_params[param_idx + 3],
+                        ]);
+                        param_idx += 4;
+                        v
+                    }
+                    Type::Mat3 => {
+                        let v = TypedValue::Mat3([
+                            block_params[param_idx],
+                            block_params[param_idx + 1],
+                            block_params[param_idx + 2],
+                            block_params[param_idx + 3],
+                            block_params[param_idx + 4],
+                            block_params[param_idx + 5],
+                            block_params[param_idx + 6],
+                            block_params[param_idx + 7],
+                            block_params[param_idx + 8],
+                        ]);
+                        param_idx += 9;
+                        v
+                    }
+                    Type::Mat4 => {
+                        let v = TypedValue::Mat4([
+                            block_params[param_idx],
+                            block_params[param_idx + 1],
+                            block_params[param_idx + 2],
+                            block_params[param_idx + 3],
+                            block_params[param_idx + 4],
+                            block_params[param_idx + 5],
+                            block_params[param_idx + 6],
+                            block_params[param_idx + 7],
+                            block_params[param_idx + 8],
+                            block_params[param_idx + 9],
+                            block_params[param_idx + 10],
+                            block_params[param_idx + 11],
+                            block_params[param_idx + 12],
+                            block_params[param_idx + 13],
+                            block_params[param_idx + 14],
+                            block_params[param_idx + 15],
+                        ]);
+                        param_idx += 16;
+                        v
+                    }
+                };
+                var_map.insert(var.name.clone(), typed_val);
+            }
+
+            let math_funcs = MathFuncs {
+                sqrt: sqrt_ref,
+                pow: pow_ref,
+            };
+            let result = compile_ast(ast, &mut builder, &var_map, &math_funcs)?;
+
+            let m = result
+                .as_mat4()
+                .ok_or(CraneliftError::UnsupportedReturnType(result.typ()))?;
+
+            for i in 0..16 {
+                builder.ins().store(
+                    MemFlags::new(),
+                    m[i],
+                    out_ptr,
+                    Offset32::new((i * 4) as i32),
+                );
+            }
+            builder.ins().return_(&[]);
+            builder.finalize();
+        }
+
+        module
+            .define_function(func_id, &mut ctx)
+            .map_err(|e| CraneliftError::JitError(e.to_string()))?;
+        module.clear_context(&mut ctx);
+        module
+            .finalize_definitions()
+            .map_err(|e| CraneliftError::JitError(e.to_string()))?;
+
+        let func_ptr = module.get_finalized_function(func_id);
+
+        Ok(CompiledMat4Fn {
             _module: module,
             func_ptr,
             param_count: total_params,
@@ -1807,6 +2659,183 @@ fn compile_binop(
             Ok(TypedValue::Vec3([x, y, z]))
         }
 
+        // Mat4 + Mat4, Mat4 - Mat4
+        #[cfg(feature = "4d")]
+        (BinOp::Add, TypedValue::Mat4(a), TypedValue::Mat4(b)) => Ok(TypedValue::Mat4([
+            builder.ins().fadd(a[0], b[0]),
+            builder.ins().fadd(a[1], b[1]),
+            builder.ins().fadd(a[2], b[2]),
+            builder.ins().fadd(a[3], b[3]),
+            builder.ins().fadd(a[4], b[4]),
+            builder.ins().fadd(a[5], b[5]),
+            builder.ins().fadd(a[6], b[6]),
+            builder.ins().fadd(a[7], b[7]),
+            builder.ins().fadd(a[8], b[8]),
+            builder.ins().fadd(a[9], b[9]),
+            builder.ins().fadd(a[10], b[10]),
+            builder.ins().fadd(a[11], b[11]),
+            builder.ins().fadd(a[12], b[12]),
+            builder.ins().fadd(a[13], b[13]),
+            builder.ins().fadd(a[14], b[14]),
+            builder.ins().fadd(a[15], b[15]),
+        ])),
+        #[cfg(feature = "4d")]
+        (BinOp::Sub, TypedValue::Mat4(a), TypedValue::Mat4(b)) => Ok(TypedValue::Mat4([
+            builder.ins().fsub(a[0], b[0]),
+            builder.ins().fsub(a[1], b[1]),
+            builder.ins().fsub(a[2], b[2]),
+            builder.ins().fsub(a[3], b[3]),
+            builder.ins().fsub(a[4], b[4]),
+            builder.ins().fsub(a[5], b[5]),
+            builder.ins().fsub(a[6], b[6]),
+            builder.ins().fsub(a[7], b[7]),
+            builder.ins().fsub(a[8], b[8]),
+            builder.ins().fsub(a[9], b[9]),
+            builder.ins().fsub(a[10], b[10]),
+            builder.ins().fsub(a[11], b[11]),
+            builder.ins().fsub(a[12], b[12]),
+            builder.ins().fsub(a[13], b[13]),
+            builder.ins().fsub(a[14], b[14]),
+            builder.ins().fsub(a[15], b[15]),
+        ])),
+
+        // Mat4 * Scalar, Scalar * Mat4
+        #[cfg(feature = "4d")]
+        (BinOp::Mul, TypedValue::Mat4(m), TypedValue::Scalar(s)) => Ok(TypedValue::Mat4([
+            builder.ins().fmul(m[0], *s),
+            builder.ins().fmul(m[1], *s),
+            builder.ins().fmul(m[2], *s),
+            builder.ins().fmul(m[3], *s),
+            builder.ins().fmul(m[4], *s),
+            builder.ins().fmul(m[5], *s),
+            builder.ins().fmul(m[6], *s),
+            builder.ins().fmul(m[7], *s),
+            builder.ins().fmul(m[8], *s),
+            builder.ins().fmul(m[9], *s),
+            builder.ins().fmul(m[10], *s),
+            builder.ins().fmul(m[11], *s),
+            builder.ins().fmul(m[12], *s),
+            builder.ins().fmul(m[13], *s),
+            builder.ins().fmul(m[14], *s),
+            builder.ins().fmul(m[15], *s),
+        ])),
+        #[cfg(feature = "4d")]
+        (BinOp::Mul, TypedValue::Scalar(s), TypedValue::Mat4(m)) => Ok(TypedValue::Mat4([
+            builder.ins().fmul(*s, m[0]),
+            builder.ins().fmul(*s, m[1]),
+            builder.ins().fmul(*s, m[2]),
+            builder.ins().fmul(*s, m[3]),
+            builder.ins().fmul(*s, m[4]),
+            builder.ins().fmul(*s, m[5]),
+            builder.ins().fmul(*s, m[6]),
+            builder.ins().fmul(*s, m[7]),
+            builder.ins().fmul(*s, m[8]),
+            builder.ins().fmul(*s, m[9]),
+            builder.ins().fmul(*s, m[10]),
+            builder.ins().fmul(*s, m[11]),
+            builder.ins().fmul(*s, m[12]),
+            builder.ins().fmul(*s, m[13]),
+            builder.ins().fmul(*s, m[14]),
+            builder.ins().fmul(*s, m[15]),
+        ])),
+
+        // Mat4 * Mat4 (column-major)
+        // result[col*4 + row] = a[row] * b[col*4] + a[4+row] * b[col*4+1] + a[8+row] * b[col*4+2] + a[12+row] * b[col*4+3]
+        #[cfg(feature = "4d")]
+        (BinOp::Mul, TypedValue::Mat4(a), TypedValue::Mat4(b)) => {
+            let mut result = [a[0]; 16]; // placeholder
+            for col in 0..4 {
+                for row in 0..4 {
+                    let t1 = builder.ins().fmul(a[row], b[col * 4]);
+                    let t2 = builder.ins().fmul(a[4 + row], b[col * 4 + 1]);
+                    let t3 = builder.ins().fmul(a[8 + row], b[col * 4 + 2]);
+                    let t4 = builder.ins().fmul(a[12 + row], b[col * 4 + 3]);
+                    let sum12 = builder.ins().fadd(t1, t2);
+                    let sum34 = builder.ins().fadd(t3, t4);
+                    result[col * 4 + row] = builder.ins().fadd(sum12, sum34);
+                }
+            }
+            Ok(TypedValue::Mat4(result))
+        }
+
+        // Mat4 * Vec4 (column vector, column-major storage)
+        // result[i] = m[i]*v[0] + m[4+i]*v[1] + m[8+i]*v[2] + m[12+i]*v[3]
+        #[cfg(feature = "4d")]
+        (BinOp::Mul, TypedValue::Mat4(m), TypedValue::Vec4(v)) => {
+            let x_t1 = builder.ins().fmul(m[0], v[0]);
+            let x_t2 = builder.ins().fmul(m[4], v[1]);
+            let x_t3 = builder.ins().fmul(m[8], v[2]);
+            let x_t4 = builder.ins().fmul(m[12], v[3]);
+            let x_12 = builder.ins().fadd(x_t1, x_t2);
+            let x_34 = builder.ins().fadd(x_t3, x_t4);
+            let x = builder.ins().fadd(x_12, x_34);
+
+            let y_t1 = builder.ins().fmul(m[1], v[0]);
+            let y_t2 = builder.ins().fmul(m[5], v[1]);
+            let y_t3 = builder.ins().fmul(m[9], v[2]);
+            let y_t4 = builder.ins().fmul(m[13], v[3]);
+            let y_12 = builder.ins().fadd(y_t1, y_t2);
+            let y_34 = builder.ins().fadd(y_t3, y_t4);
+            let y = builder.ins().fadd(y_12, y_34);
+
+            let z_t1 = builder.ins().fmul(m[2], v[0]);
+            let z_t2 = builder.ins().fmul(m[6], v[1]);
+            let z_t3 = builder.ins().fmul(m[10], v[2]);
+            let z_t4 = builder.ins().fmul(m[14], v[3]);
+            let z_12 = builder.ins().fadd(z_t1, z_t2);
+            let z_34 = builder.ins().fadd(z_t3, z_t4);
+            let z = builder.ins().fadd(z_12, z_34);
+
+            let w_t1 = builder.ins().fmul(m[3], v[0]);
+            let w_t2 = builder.ins().fmul(m[7], v[1]);
+            let w_t3 = builder.ins().fmul(m[11], v[2]);
+            let w_t4 = builder.ins().fmul(m[15], v[3]);
+            let w_12 = builder.ins().fadd(w_t1, w_t2);
+            let w_34 = builder.ins().fadd(w_t3, w_t4);
+            let w = builder.ins().fadd(w_12, w_34);
+
+            Ok(TypedValue::Vec4([x, y, z, w]))
+        }
+
+        // Vec4 * Mat4 (row vector, column-major storage)
+        // result[j] = v[0]*m[j*4] + v[1]*m[j*4+1] + v[2]*m[j*4+2] + v[3]*m[j*4+3]
+        #[cfg(feature = "4d")]
+        (BinOp::Mul, TypedValue::Vec4(v), TypedValue::Mat4(m)) => {
+            let x_t1 = builder.ins().fmul(v[0], m[0]);
+            let x_t2 = builder.ins().fmul(v[1], m[1]);
+            let x_t3 = builder.ins().fmul(v[2], m[2]);
+            let x_t4 = builder.ins().fmul(v[3], m[3]);
+            let x_12 = builder.ins().fadd(x_t1, x_t2);
+            let x_34 = builder.ins().fadd(x_t3, x_t4);
+            let x = builder.ins().fadd(x_12, x_34);
+
+            let y_t1 = builder.ins().fmul(v[0], m[4]);
+            let y_t2 = builder.ins().fmul(v[1], m[5]);
+            let y_t3 = builder.ins().fmul(v[2], m[6]);
+            let y_t4 = builder.ins().fmul(v[3], m[7]);
+            let y_12 = builder.ins().fadd(y_t1, y_t2);
+            let y_34 = builder.ins().fadd(y_t3, y_t4);
+            let y = builder.ins().fadd(y_12, y_34);
+
+            let z_t1 = builder.ins().fmul(v[0], m[8]);
+            let z_t2 = builder.ins().fmul(v[1], m[9]);
+            let z_t3 = builder.ins().fmul(v[2], m[10]);
+            let z_t4 = builder.ins().fmul(v[3], m[11]);
+            let z_12 = builder.ins().fadd(z_t1, z_t2);
+            let z_34 = builder.ins().fadd(z_t3, z_t4);
+            let z = builder.ins().fadd(z_12, z_34);
+
+            let w_t1 = builder.ins().fmul(v[0], m[12]);
+            let w_t2 = builder.ins().fmul(v[1], m[13]);
+            let w_t3 = builder.ins().fmul(v[2], m[14]);
+            let w_t4 = builder.ins().fmul(v[3], m[15]);
+            let w_12 = builder.ins().fadd(w_t1, w_t2);
+            let w_34 = builder.ins().fadd(w_t3, w_t4);
+            let w = builder.ins().fadd(w_12, w_34);
+
+            Ok(TypedValue::Vec4([x, y, z, w]))
+        }
+
         _ => Err(CraneliftError::TypeMismatch {
             op: match op {
                 BinOp::Add => "+",
@@ -1863,6 +2892,25 @@ fn compile_unaryop(
                 builder.ins().fneg(m[6]),
                 builder.ins().fneg(m[7]),
                 builder.ins().fneg(m[8]),
+            ])),
+            #[cfg(feature = "4d")]
+            TypedValue::Mat4(m) => Ok(TypedValue::Mat4([
+                builder.ins().fneg(m[0]),
+                builder.ins().fneg(m[1]),
+                builder.ins().fneg(m[2]),
+                builder.ins().fneg(m[3]),
+                builder.ins().fneg(m[4]),
+                builder.ins().fneg(m[5]),
+                builder.ins().fneg(m[6]),
+                builder.ins().fneg(m[7]),
+                builder.ins().fneg(m[8]),
+                builder.ins().fneg(m[9]),
+                builder.ins().fneg(m[10]),
+                builder.ins().fneg(m[11]),
+                builder.ins().fneg(m[12]),
+                builder.ins().fneg(m[13]),
+                builder.ins().fneg(m[14]),
+                builder.ins().fneg(m[15]),
             ])),
         },
         UnaryOp::Not => Err(CraneliftError::UnsupportedConditional("Not")),
@@ -2337,5 +3385,113 @@ mod tests {
         for i in 0..9 {
             assert!(approx_eq(result[i], identity[i]));
         }
+    }
+
+    #[cfg(feature = "4d")]
+    #[test]
+    fn test_mat4_mul_vec4() {
+        // Test Mat4 * Vec4 with identity matrix
+        let expr = Expr::parse("m * v").unwrap();
+        let jit = LinalgJit::new().unwrap();
+        let func = jit
+            .compile_vec4(
+                expr.ast(),
+                &[VarSpec::new("m", Type::Mat4), VarSpec::new("v", Type::Vec4)],
+            )
+            .unwrap();
+        // identity = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]
+        let identity = [
+            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+        ];
+        let v = [2.0, 3.0, 4.0, 5.0];
+        let mut args = [0.0f32; 20];
+        args[..16].copy_from_slice(&identity);
+        args[16..].copy_from_slice(&v);
+        let [x, y, z, w] = func.call(&args);
+        assert!(approx_eq(x, 2.0));
+        assert!(approx_eq(y, 3.0));
+        assert!(approx_eq(z, 4.0));
+        assert!(approx_eq(w, 5.0));
+    }
+
+    #[cfg(feature = "4d")]
+    #[test]
+    fn test_mat4_scalar_mul() {
+        let expr = Expr::parse("m * 2").unwrap();
+        let jit = LinalgJit::new().unwrap();
+        let func = jit
+            .compile_mat4(expr.ast(), &[VarSpec::new("m", Type::Mat4)])
+            .unwrap();
+        let input: [f32; 16] = std::array::from_fn(|i| i as f32 + 1.0);
+        let result = func.call(&input);
+        for i in 0..16 {
+            assert!(approx_eq(result[i], (i as f32 + 1.0) * 2.0));
+        }
+    }
+
+    #[cfg(feature = "4d")]
+    #[test]
+    fn test_mat4_mul_mat4_identity() {
+        let expr = Expr::parse("a * b").unwrap();
+        let jit = LinalgJit::new().unwrap();
+        let func = jit
+            .compile_mat4(
+                expr.ast(),
+                &[VarSpec::new("a", Type::Mat4), VarSpec::new("b", Type::Mat4)],
+            )
+            .unwrap();
+        // identity * identity = identity
+        let identity = [
+            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+        ];
+        let mut args = [0.0f32; 32];
+        args[..16].copy_from_slice(&identity);
+        args[16..].copy_from_slice(&identity);
+        let result = func.call(&args);
+        for i in 0..16 {
+            assert!(approx_eq(result[i], identity[i]));
+        }
+    }
+
+    #[cfg(feature = "4d")]
+    #[test]
+    fn test_mat4_neg() {
+        let expr = Expr::parse("-m").unwrap();
+        let jit = LinalgJit::new().unwrap();
+        let func = jit
+            .compile_mat4(expr.ast(), &[VarSpec::new("m", Type::Mat4)])
+            .unwrap();
+        let input: [f32; 16] = std::array::from_fn(|i| i as f32 + 1.0);
+        let result = func.call(&input);
+        for i in 0..16 {
+            assert!(approx_eq(result[i], -input[i]));
+        }
+    }
+
+    #[cfg(feature = "4d")]
+    #[test]
+    fn test_vec4_mul_mat4() {
+        // Test Vec4 * Mat4 with identity matrix
+        let expr = Expr::parse("v * m").unwrap();
+        let jit = LinalgJit::new().unwrap();
+        let func = jit
+            .compile_vec4(
+                expr.ast(),
+                &[VarSpec::new("v", Type::Vec4), VarSpec::new("m", Type::Mat4)],
+            )
+            .unwrap();
+        // identity = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]
+        let identity = [
+            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+        ];
+        let v = [2.0, 3.0, 4.0, 5.0];
+        let mut args = [0.0f32; 20];
+        args[..4].copy_from_slice(&v);
+        args[4..].copy_from_slice(&identity);
+        let [x, y, z, w] = func.call(&args);
+        assert!(approx_eq(x, 2.0));
+        assert!(approx_eq(y, 3.0));
+        assert!(approx_eq(z, 4.0));
+        assert!(approx_eq(w, 5.0));
     }
 }
