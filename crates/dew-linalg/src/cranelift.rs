@@ -3887,6 +3887,189 @@ fn compile_call(
             }
         }
 
+        #[cfg(feature = "3d")]
+        "rotate_x" => {
+            if args.len() != 2 {
+                return Err(CraneliftError::UnknownFunction(name.to_string()));
+            }
+            // rotate_x(v, angle) = [x, y*c - z*s, y*s + z*c]
+            match (&args[0], &args[1]) {
+                (TypedValue::Vec3(v), TypedValue::Scalar(angle)) => {
+                    let cos_call = builder.ins().call(math.cos, &[*angle]);
+                    let sin_call = builder.ins().call(math.sin, &[*angle]);
+                    let c = builder.inst_results(cos_call)[0];
+                    let s = builder.inst_results(sin_call)[0];
+                    let vy_c = builder.ins().fmul(v[1], c);
+                    let vz_s = builder.ins().fmul(v[2], s);
+                    let vy_s = builder.ins().fmul(v[1], s);
+                    let vz_c = builder.ins().fmul(v[2], c);
+                    let ry = builder.ins().fsub(vy_c, vz_s);
+                    let rz = builder.ins().fadd(vy_s, vz_c);
+                    Ok(TypedValue::Vec3([v[0], ry, rz]))
+                }
+                _ => Err(CraneliftError::UnknownFunction(name.to_string())),
+            }
+        }
+
+        #[cfg(feature = "3d")]
+        "rotate_y" => {
+            if args.len() != 2 {
+                return Err(CraneliftError::UnknownFunction(name.to_string()));
+            }
+            // rotate_y(v, angle) = [x*c + z*s, y, -x*s + z*c]
+            match (&args[0], &args[1]) {
+                (TypedValue::Vec3(v), TypedValue::Scalar(angle)) => {
+                    let cos_call = builder.ins().call(math.cos, &[*angle]);
+                    let sin_call = builder.ins().call(math.sin, &[*angle]);
+                    let c = builder.inst_results(cos_call)[0];
+                    let s = builder.inst_results(sin_call)[0];
+                    let vx_c = builder.ins().fmul(v[0], c);
+                    let vz_s = builder.ins().fmul(v[2], s);
+                    let vx_s = builder.ins().fmul(v[0], s);
+                    let vz_c = builder.ins().fmul(v[2], c);
+                    let rx = builder.ins().fadd(vx_c, vz_s);
+                    let neg_vx_s = builder.ins().fneg(vx_s);
+                    let rz = builder.ins().fadd(neg_vx_s, vz_c);
+                    Ok(TypedValue::Vec3([rx, v[1], rz]))
+                }
+                _ => Err(CraneliftError::UnknownFunction(name.to_string())),
+            }
+        }
+
+        #[cfg(feature = "3d")]
+        "rotate_z" => {
+            if args.len() != 2 {
+                return Err(CraneliftError::UnknownFunction(name.to_string()));
+            }
+            // rotate_z(v, angle) = [x*c - y*s, x*s + y*c, z]
+            match (&args[0], &args[1]) {
+                (TypedValue::Vec3(v), TypedValue::Scalar(angle)) => {
+                    let cos_call = builder.ins().call(math.cos, &[*angle]);
+                    let sin_call = builder.ins().call(math.sin, &[*angle]);
+                    let c = builder.inst_results(cos_call)[0];
+                    let s = builder.inst_results(sin_call)[0];
+                    let vx_c = builder.ins().fmul(v[0], c);
+                    let vy_s = builder.ins().fmul(v[1], s);
+                    let vx_s = builder.ins().fmul(v[0], s);
+                    let vy_c = builder.ins().fmul(v[1], c);
+                    let rx = builder.ins().fsub(vx_c, vy_s);
+                    let ry = builder.ins().fadd(vx_s, vy_c);
+                    Ok(TypedValue::Vec3([rx, ry, v[2]]))
+                }
+                _ => Err(CraneliftError::UnknownFunction(name.to_string())),
+            }
+        }
+
+        #[cfg(feature = "3d")]
+        "rotate3d" => {
+            if args.len() != 3 {
+                return Err(CraneliftError::UnknownFunction(name.to_string()));
+            }
+            // Rodrigues' rotation formula:
+            // v' = v*cos(θ) + (k × v)*sin(θ) + k*(k·v)*(1-cos(θ))
+            match (&args[0], &args[1], &args[2]) {
+                (TypedValue::Vec3(v), TypedValue::Vec3(k), TypedValue::Scalar(angle)) => {
+                    let cos_call = builder.ins().call(math.cos, &[*angle]);
+                    let sin_call = builder.ins().call(math.sin, &[*angle]);
+                    let c = builder.inst_results(cos_call)[0];
+                    let s = builder.inst_results(sin_call)[0];
+
+                    // k · v (dot product)
+                    let kx_vx = builder.ins().fmul(k[0], v[0]);
+                    let ky_vy = builder.ins().fmul(k[1], v[1]);
+                    let kz_vz = builder.ins().fmul(k[2], v[2]);
+                    let k_dot_v_xy = builder.ins().fadd(kx_vx, ky_vy);
+                    let k_dot_v = builder.ins().fadd(k_dot_v_xy, kz_vz);
+
+                    // k × v (cross product)
+                    let ky_vz = builder.ins().fmul(k[1], v[2]);
+                    let kz_vy = builder.ins().fmul(k[2], v[1]);
+                    let cross_x = builder.ins().fsub(ky_vz, kz_vy);
+
+                    let kz_vx = builder.ins().fmul(k[2], v[0]);
+                    let kx_vz = builder.ins().fmul(k[0], v[2]);
+                    let cross_y = builder.ins().fsub(kz_vx, kx_vz);
+
+                    let kx_vy = builder.ins().fmul(k[0], v[1]);
+                    let ky_vx = builder.ins().fmul(k[1], v[0]);
+                    let cross_z = builder.ins().fsub(kx_vy, ky_vx);
+
+                    // 1 - cos(θ)
+                    let one = builder.ins().f32const(1.0);
+                    let one_minus_c = builder.ins().fsub(one, c);
+
+                    // Compute result for each component:
+                    // v[i]*c + cross[i]*s + k[i]*k_dot_v*one_minus_c
+                    let compute_component =
+                        |builder: &mut FunctionBuilder, vi, cross_i, ki| -> CraneliftValue {
+                            let vi_c = builder.ins().fmul(vi, c);
+                            let cross_s = builder.ins().fmul(cross_i, s);
+                            let ki_kdv = builder.ins().fmul(ki, k_dot_v);
+                            let ki_kdv_omc = builder.ins().fmul(ki_kdv, one_minus_c);
+                            let sum1 = builder.ins().fadd(vi_c, cross_s);
+                            builder.ins().fadd(sum1, ki_kdv_omc)
+                        };
+
+                    let rx = compute_component(builder, v[0], cross_x, k[0]);
+                    let ry = compute_component(builder, v[1], cross_y, k[1]);
+                    let rz = compute_component(builder, v[2], cross_z, k[2]);
+
+                    Ok(TypedValue::Vec3([rx, ry, rz]))
+                }
+                _ => Err(CraneliftError::UnknownFunction(name.to_string())),
+            }
+        }
+
+        // ====================================================================
+        // Matrix constructors
+        // ====================================================================
+        "mat2" => {
+            if args.len() != 4 {
+                return Err(CraneliftError::UnknownFunction(name.to_string()));
+            }
+            match (&args[0], &args[1], &args[2], &args[3]) {
+                (
+                    TypedValue::Scalar(a),
+                    TypedValue::Scalar(b),
+                    TypedValue::Scalar(c),
+                    TypedValue::Scalar(d),
+                ) => Ok(TypedValue::Mat2([*a, *b, *c, *d])),
+                _ => Err(CraneliftError::UnknownFunction(name.to_string())),
+            }
+        }
+
+        #[cfg(feature = "3d")]
+        "mat3" => {
+            if args.len() != 9 {
+                return Err(CraneliftError::UnknownFunction(name.to_string()));
+            }
+            // Check all are scalars
+            let mut vals = [builder.ins().f32const(0.0); 9];
+            for (i, arg) in args.iter().enumerate() {
+                match arg {
+                    TypedValue::Scalar(v) => vals[i] = *v,
+                    _ => return Err(CraneliftError::UnknownFunction(name.to_string())),
+                }
+            }
+            Ok(TypedValue::Mat3(vals))
+        }
+
+        #[cfg(feature = "4d")]
+        "mat4" => {
+            if args.len() != 16 {
+                return Err(CraneliftError::UnknownFunction(name.to_string()));
+            }
+            // Check all are scalars
+            let mut vals = [builder.ins().f32const(0.0); 16];
+            for (i, arg) in args.iter().enumerate() {
+                match arg {
+                    TypedValue::Scalar(v) => vals[i] = *v,
+                    _ => return Err(CraneliftError::UnknownFunction(name.to_string())),
+                }
+            }
+            Ok(TypedValue::Mat4(vals))
+        }
+
         _ => Err(CraneliftError::UnknownFunction(name.to_string())),
     }
 }

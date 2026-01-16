@@ -1363,6 +1363,148 @@ fn emit_function_call(name: &str, args: Vec<LuaExpr>) -> Result<LuaExpr, LuaErro
             })
         }
 
+        #[cfg(feature = "3d")]
+        "rotate_x" => {
+            if args.len() != 2 {
+                return Err(LuaError::UnknownFunction(name.to_string()));
+            }
+            let v = &args[0].code;
+            let angle = &args[1].code;
+            let code = format!(
+                "(function() local c, s = math.cos({angle}), math.sin({angle}); return {{{v}[1], {v}[2]*c - {v}[3]*s, {v}[2]*s + {v}[3]*c}} end)()"
+            );
+            Ok(LuaExpr {
+                code,
+                typ: Type::Vec3,
+            })
+        }
+
+        #[cfg(feature = "3d")]
+        "rotate_y" => {
+            if args.len() != 2 {
+                return Err(LuaError::UnknownFunction(name.to_string()));
+            }
+            let v = &args[0].code;
+            let angle = &args[1].code;
+            let code = format!(
+                "(function() local c, s = math.cos({angle}), math.sin({angle}); return {{{v}[1]*c + {v}[3]*s, {v}[2], -{v}[1]*s + {v}[3]*c}} end)()"
+            );
+            Ok(LuaExpr {
+                code,
+                typ: Type::Vec3,
+            })
+        }
+
+        #[cfg(feature = "3d")]
+        "rotate_z" => {
+            if args.len() != 2 {
+                return Err(LuaError::UnknownFunction(name.to_string()));
+            }
+            let v = &args[0].code;
+            let angle = &args[1].code;
+            let code = format!(
+                "(function() local c, s = math.cos({angle}), math.sin({angle}); return {{{v}[1]*c - {v}[2]*s, {v}[1]*s + {v}[2]*c, {v}[3]}} end)()"
+            );
+            Ok(LuaExpr {
+                code,
+                typ: Type::Vec3,
+            })
+        }
+
+        #[cfg(feature = "3d")]
+        "rotate3d" => {
+            if args.len() != 3 {
+                return Err(LuaError::UnknownFunction(name.to_string()));
+            }
+            let v = &args[0].code;
+            let k = &args[1].code;
+            let angle = &args[2].code;
+            // Rodrigues' rotation formula
+            let code = format!(
+                "(function() local c, s = math.cos({angle}), math.sin({angle}); \
+                local kv = {k}[1]*{v}[1] + {k}[2]*{v}[2] + {k}[3]*{v}[3]; \
+                local cx = {k}[2]*{v}[3] - {k}[3]*{v}[2]; \
+                local cy = {k}[3]*{v}[1] - {k}[1]*{v}[3]; \
+                local cz = {k}[1]*{v}[2] - {k}[2]*{v}[1]; \
+                local omc = 1 - c; \
+                return {{{v}[1]*c + cx*s + {k}[1]*kv*omc, {v}[2]*c + cy*s + {k}[2]*kv*omc, {v}[3]*c + cz*s + {k}[3]*kv*omc}} end)()"
+            );
+            Ok(LuaExpr {
+                code,
+                typ: Type::Vec3,
+            })
+        }
+
+        // ====================================================================
+        // Matrix constructors
+        // ====================================================================
+        "mat2" => {
+            if args.len() != 4 {
+                return Err(LuaError::UnknownFunction(name.to_string()));
+            }
+            let code = format!(
+                "{{{}, {}, {}, {}}}",
+                args[0].code, args[1].code, args[2].code, args[3].code
+            );
+            Ok(LuaExpr {
+                code,
+                typ: Type::Mat2,
+            })
+        }
+
+        #[cfg(feature = "3d")]
+        "mat3" => {
+            if args.len() != 9 {
+                return Err(LuaError::UnknownFunction(name.to_string()));
+            }
+            let code = format!(
+                "{{{}, {}, {}, {}, {}, {}, {}, {}, {}}}",
+                args[0].code,
+                args[1].code,
+                args[2].code,
+                args[3].code,
+                args[4].code,
+                args[5].code,
+                args[6].code,
+                args[7].code,
+                args[8].code
+            );
+            Ok(LuaExpr {
+                code,
+                typ: Type::Mat3,
+            })
+        }
+
+        #[cfg(feature = "4d")]
+        "mat4" => {
+            if args.len() != 16 {
+                return Err(LuaError::UnknownFunction(name.to_string()));
+            }
+            let code = format!(
+                "{{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}}}",
+                args[0].code,
+                args[1].code,
+                args[2].code,
+                args[3].code,
+                args[4].code,
+                args[5].code,
+                args[6].code,
+                args[7].code,
+                args[8].code,
+                args[9].code,
+                args[10].code,
+                args[11].code,
+                args[12].code,
+                args[13].code,
+                args[14].code,
+                args[15].code
+            );
+            Ok(LuaExpr {
+                code,
+                typ: Type::Mat4,
+            })
+        }
+
         _ => Err(LuaError::UnknownFunction(name.to_string())),
     }
 }

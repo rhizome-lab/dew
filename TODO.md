@@ -100,6 +100,15 @@ via passthrough.
 
 #### Transform
 - [x] rotate2d(Vec2, angle) -> Vec2
+- [x] rotate_x(Vec3, angle) -> Vec3
+- [x] rotate_y(Vec3, angle) -> Vec3
+- [x] rotate_z(Vec3, angle) -> Vec3
+- [x] rotate3d(Vec3, axis, angle) -> Vec3 (Rodrigues' formula)
+
+#### Matrix Constructors
+- [x] mat2(4 scalars) -> Mat2
+- [x] mat3(9 scalars) -> Mat3
+- [x] mat4(16 scalars) -> Mat4
 
 ## Future Work
 

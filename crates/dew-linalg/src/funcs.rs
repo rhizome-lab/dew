@@ -531,6 +531,147 @@ impl<T: Float> LinalgFn<T> for Vec4Constructor {
 }
 
 // ============================================================================
+// Matrix constructors
+// ============================================================================
+
+/// Construct Mat2 from four scalars (column-major): mat2(c0r0, c0r1, c1r0, c1r1) -> Mat2
+pub struct Mat2Constructor;
+
+impl<T: Float> LinalgFn<T> for Mat2Constructor {
+    fn name(&self) -> &str {
+        "mat2"
+    }
+
+    fn signatures(&self) -> Vec<Signature> {
+        vec![Signature {
+            args: vec![Type::Scalar, Type::Scalar, Type::Scalar, Type::Scalar],
+            ret: Type::Mat2,
+        }]
+    }
+
+    fn call(&self, args: &[Value<T>]) -> Value<T> {
+        match (&args[0], &args[1], &args[2], &args[3]) {
+            (Value::Scalar(a), Value::Scalar(b), Value::Scalar(c), Value::Scalar(d)) => {
+                Value::Mat2([*a, *b, *c, *d])
+            }
+            _ => unreachable!("signature mismatch"),
+        }
+    }
+}
+
+/// Construct Mat3 from nine scalars (column-major): mat3(...) -> Mat3
+#[cfg(feature = "3d")]
+pub struct Mat3Constructor;
+
+#[cfg(feature = "3d")]
+impl<T: Float> LinalgFn<T> for Mat3Constructor {
+    fn name(&self) -> &str {
+        "mat3"
+    }
+
+    fn signatures(&self) -> Vec<Signature> {
+        vec![Signature {
+            args: vec![
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+            ],
+            ret: Type::Mat3,
+        }]
+    }
+
+    fn call(&self, args: &[Value<T>]) -> Value<T> {
+        match (
+            &args[0], &args[1], &args[2], &args[3], &args[4], &args[5], &args[6], &args[7],
+            &args[8],
+        ) {
+            (
+                Value::Scalar(a),
+                Value::Scalar(b),
+                Value::Scalar(c),
+                Value::Scalar(d),
+                Value::Scalar(e),
+                Value::Scalar(f),
+                Value::Scalar(g),
+                Value::Scalar(h),
+                Value::Scalar(i),
+            ) => Value::Mat3([*a, *b, *c, *d, *e, *f, *g, *h, *i]),
+            _ => unreachable!("signature mismatch"),
+        }
+    }
+}
+
+/// Construct Mat4 from sixteen scalars (column-major): mat4(...) -> Mat4
+#[cfg(feature = "4d")]
+pub struct Mat4Constructor;
+
+#[cfg(feature = "4d")]
+impl<T: Float> LinalgFn<T> for Mat4Constructor {
+    fn name(&self) -> &str {
+        "mat4"
+    }
+
+    fn signatures(&self) -> Vec<Signature> {
+        vec![Signature {
+            args: vec![
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+                Type::Scalar,
+            ],
+            ret: Type::Mat4,
+        }]
+    }
+
+    fn call(&self, args: &[Value<T>]) -> Value<T> {
+        match (
+            &args[0], &args[1], &args[2], &args[3], &args[4], &args[5], &args[6], &args[7],
+            &args[8], &args[9], &args[10], &args[11], &args[12], &args[13], &args[14], &args[15],
+        ) {
+            (
+                Value::Scalar(a),
+                Value::Scalar(b),
+                Value::Scalar(c),
+                Value::Scalar(d),
+                Value::Scalar(e),
+                Value::Scalar(f),
+                Value::Scalar(g),
+                Value::Scalar(h),
+                Value::Scalar(i),
+                Value::Scalar(j),
+                Value::Scalar(k),
+                Value::Scalar(l),
+                Value::Scalar(m),
+                Value::Scalar(n),
+                Value::Scalar(o),
+                Value::Scalar(p),
+            ) => Value::Mat4([
+                *a, *b, *c, *d, *e, *f, *g, *h, *i, *j, *k, *l, *m, *n, *o, *p,
+            ]),
+            _ => unreachable!("signature mismatch"),
+        }
+    }
+}
+
+// ============================================================================
 // Component extraction
 // ============================================================================
 
@@ -1048,6 +1189,146 @@ impl<T: Float> LinalgFn<T> for Rotate2D {
     }
 }
 
+/// Rotate a 3D vector around the X axis: rotate_x(v, angle) -> Vec3
+#[cfg(feature = "3d")]
+pub struct RotateX;
+
+#[cfg(feature = "3d")]
+impl<T: Float> LinalgFn<T> for RotateX {
+    fn name(&self) -> &str {
+        "rotate_x"
+    }
+
+    fn signatures(&self) -> Vec<Signature> {
+        vec![Signature {
+            args: vec![Type::Vec3, Type::Scalar],
+            ret: Type::Vec3,
+        }]
+    }
+
+    fn call(&self, args: &[Value<T>]) -> Value<T> {
+        match (&args[0], &args[1]) {
+            (Value::Vec3(v), Value::Scalar(angle)) => {
+                let c = angle.cos();
+                let s = angle.sin();
+                // Rotation around X: [x, y*c - z*s, y*s + z*c]
+                Value::Vec3([v[0], v[1] * c - v[2] * s, v[1] * s + v[2] * c])
+            }
+            _ => unreachable!("signature mismatch"),
+        }
+    }
+}
+
+/// Rotate a 3D vector around the Y axis: rotate_y(v, angle) -> Vec3
+#[cfg(feature = "3d")]
+pub struct RotateY;
+
+#[cfg(feature = "3d")]
+impl<T: Float> LinalgFn<T> for RotateY {
+    fn name(&self) -> &str {
+        "rotate_y"
+    }
+
+    fn signatures(&self) -> Vec<Signature> {
+        vec![Signature {
+            args: vec![Type::Vec3, Type::Scalar],
+            ret: Type::Vec3,
+        }]
+    }
+
+    fn call(&self, args: &[Value<T>]) -> Value<T> {
+        match (&args[0], &args[1]) {
+            (Value::Vec3(v), Value::Scalar(angle)) => {
+                let c = angle.cos();
+                let s = angle.sin();
+                // Rotation around Y: [x*c + z*s, y, -x*s + z*c]
+                Value::Vec3([v[0] * c + v[2] * s, v[1], -v[0] * s + v[2] * c])
+            }
+            _ => unreachable!("signature mismatch"),
+        }
+    }
+}
+
+/// Rotate a 3D vector around the Z axis: rotate_z(v, angle) -> Vec3
+#[cfg(feature = "3d")]
+pub struct RotateZ;
+
+#[cfg(feature = "3d")]
+impl<T: Float> LinalgFn<T> for RotateZ {
+    fn name(&self) -> &str {
+        "rotate_z"
+    }
+
+    fn signatures(&self) -> Vec<Signature> {
+        vec![Signature {
+            args: vec![Type::Vec3, Type::Scalar],
+            ret: Type::Vec3,
+        }]
+    }
+
+    fn call(&self, args: &[Value<T>]) -> Value<T> {
+        match (&args[0], &args[1]) {
+            (Value::Vec3(v), Value::Scalar(angle)) => {
+                let c = angle.cos();
+                let s = angle.sin();
+                // Rotation around Z: [x*c - y*s, x*s + y*c, z]
+                Value::Vec3([v[0] * c - v[1] * s, v[0] * s + v[1] * c, v[2]])
+            }
+            _ => unreachable!("signature mismatch"),
+        }
+    }
+}
+
+/// Rotate a 3D vector around an arbitrary axis: rotate3d(v, axis, angle) -> Vec3
+/// Uses Rodrigues' rotation formula. The axis should be normalized.
+#[cfg(feature = "3d")]
+pub struct Rotate3D;
+
+#[cfg(feature = "3d")]
+impl<T: Float> LinalgFn<T> for Rotate3D {
+    fn name(&self) -> &str {
+        "rotate3d"
+    }
+
+    fn signatures(&self) -> Vec<Signature> {
+        vec![Signature {
+            args: vec![Type::Vec3, Type::Vec3, Type::Scalar],
+            ret: Type::Vec3,
+        }]
+    }
+
+    fn call(&self, args: &[Value<T>]) -> Value<T> {
+        match (&args[0], &args[1], &args[2]) {
+            (Value::Vec3(v), Value::Vec3(axis), Value::Scalar(angle)) => {
+                // Rodrigues' rotation formula:
+                // v' = v*cos(θ) + (k × v)*sin(θ) + k*(k·v)*(1-cos(θ))
+                let c = angle.cos();
+                let s = angle.sin();
+                let k = axis; // Assumed normalized
+
+                // k · v (dot product)
+                let k_dot_v = k[0] * v[0] + k[1] * v[1] + k[2] * v[2];
+
+                // k × v (cross product)
+                let k_cross_v = [
+                    k[1] * v[2] - k[2] * v[1],
+                    k[2] * v[0] - k[0] * v[2],
+                    k[0] * v[1] - k[1] * v[0],
+                ];
+
+                let one_minus_c = T::one() - c;
+
+                Value::Vec3([
+                    v[0] * c + k_cross_v[0] * s + k[0] * k_dot_v * one_minus_c,
+                    v[1] * c + k_cross_v[1] * s + k[1] * k_dot_v * one_minus_c,
+                    v[2] * c + k_cross_v[2] * s + k[2] * k_dot_v * one_minus_c,
+                ])
+            }
+            _ => unreachable!("signature mismatch"),
+        }
+    }
+}
+
 // ============================================================================
 // Registry helper
 // ============================================================================
@@ -1067,12 +1348,19 @@ pub fn register_linalg<T: Float + 'static>(registry: &mut FunctionRegistry<T>) {
     registry.register(Lerp);
     registry.register(Mix);
 
-    // Constructors
+    // Vector constructors
     registry.register(Vec2Constructor);
     #[cfg(feature = "3d")]
     registry.register(Vec3Constructor);
     #[cfg(feature = "4d")]
     registry.register(Vec4Constructor);
+
+    // Matrix constructors
+    registry.register(Mat2Constructor);
+    #[cfg(feature = "3d")]
+    registry.register(Mat3Constructor);
+    #[cfg(feature = "4d")]
+    registry.register(Mat4Constructor);
 
     // Component extraction
     registry.register(ExtractX);
@@ -1101,6 +1389,14 @@ pub fn register_linalg<T: Float + 'static>(registry: &mut FunctionRegistry<T>) {
 
     // Transform
     registry.register(Rotate2D);
+    #[cfg(feature = "3d")]
+    registry.register(RotateX);
+    #[cfg(feature = "3d")]
+    registry.register(RotateY);
+    #[cfg(feature = "3d")]
+    registry.register(RotateZ);
+    #[cfg(feature = "3d")]
+    registry.register(Rotate3D);
 }
 
 /// Create a new registry with all standard linalg functions.

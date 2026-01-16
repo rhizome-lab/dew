@@ -625,6 +625,136 @@ fn emit_function_call(name: &str, args: Vec<WgslExpr>) -> Result<WgslExpr, WgslE
             })
         }
 
+        #[cfg(feature = "3d")]
+        "rotate_x" => {
+            if args.len() != 2 {
+                return Err(WgslError::UnknownFunction(name.to_string()));
+            }
+            let v = &args[0].code;
+            let angle = &args[1].code;
+            Ok(WgslExpr {
+                code: format!(
+                    "vec3<f32>({v}.x, {v}.y*cos({angle}) - {v}.z*sin({angle}), {v}.y*sin({angle}) + {v}.z*cos({angle}))"
+                ),
+                typ: Type::Vec3,
+            })
+        }
+
+        #[cfg(feature = "3d")]
+        "rotate_y" => {
+            if args.len() != 2 {
+                return Err(WgslError::UnknownFunction(name.to_string()));
+            }
+            let v = &args[0].code;
+            let angle = &args[1].code;
+            Ok(WgslExpr {
+                code: format!(
+                    "vec3<f32>({v}.x*cos({angle}) + {v}.z*sin({angle}), {v}.y, -{v}.x*sin({angle}) + {v}.z*cos({angle}))"
+                ),
+                typ: Type::Vec3,
+            })
+        }
+
+        #[cfg(feature = "3d")]
+        "rotate_z" => {
+            if args.len() != 2 {
+                return Err(WgslError::UnknownFunction(name.to_string()));
+            }
+            let v = &args[0].code;
+            let angle = &args[1].code;
+            Ok(WgslExpr {
+                code: format!(
+                    "vec3<f32>({v}.x*cos({angle}) - {v}.y*sin({angle}), {v}.x*sin({angle}) + {v}.y*cos({angle}), {v}.z)"
+                ),
+                typ: Type::Vec3,
+            })
+        }
+
+        #[cfg(feature = "3d")]
+        "rotate3d" => {
+            if args.len() != 3 {
+                return Err(WgslError::UnknownFunction(name.to_string()));
+            }
+            // Rodrigues' rotation formula
+            let v = &args[0].code;
+            let k = &args[1].code;
+            let angle = &args[2].code;
+            // v' = v*cos(θ) + cross(k, v)*sin(θ) + k*dot(k, v)*(1-cos(θ))
+            Ok(WgslExpr {
+                code: format!(
+                    "({v}*cos({angle}) + cross({k}, {v})*sin({angle}) + {k}*dot({k}, {v})*(1.0 - cos({angle})))"
+                ),
+                typ: Type::Vec3,
+            })
+        }
+
+        // ====================================================================
+        // Matrix constructors
+        // ====================================================================
+        "mat2" => {
+            if args.len() != 4 {
+                return Err(WgslError::UnknownFunction(name.to_string()));
+            }
+            Ok(WgslExpr {
+                code: format!(
+                    "mat2x2<f32>({}, {}, {}, {})",
+                    args[0].code, args[1].code, args[2].code, args[3].code
+                ),
+                typ: Type::Mat2,
+            })
+        }
+
+        #[cfg(feature = "3d")]
+        "mat3" => {
+            if args.len() != 9 {
+                return Err(WgslError::UnknownFunction(name.to_string()));
+            }
+            Ok(WgslExpr {
+                code: format!(
+                    "mat3x3<f32>({}, {}, {}, {}, {}, {}, {}, {}, {})",
+                    args[0].code,
+                    args[1].code,
+                    args[2].code,
+                    args[3].code,
+                    args[4].code,
+                    args[5].code,
+                    args[6].code,
+                    args[7].code,
+                    args[8].code
+                ),
+                typ: Type::Mat3,
+            })
+        }
+
+        #[cfg(feature = "4d")]
+        "mat4" => {
+            if args.len() != 16 {
+                return Err(WgslError::UnknownFunction(name.to_string()));
+            }
+            Ok(WgslExpr {
+                code: format!(
+                    "mat4x4<f32>({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})",
+                    args[0].code,
+                    args[1].code,
+                    args[2].code,
+                    args[3].code,
+                    args[4].code,
+                    args[5].code,
+                    args[6].code,
+                    args[7].code,
+                    args[8].code,
+                    args[9].code,
+                    args[10].code,
+                    args[11].code,
+                    args[12].code,
+                    args[13].code,
+                    args[14].code,
+                    args[15].code
+                ),
+                typ: Type::Mat4,
+            })
+        }
+
         _ => Err(WgslError::UnknownFunction(name.to_string())),
     }
 }
