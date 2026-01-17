@@ -95,9 +95,9 @@ impl Pass for QuaternionConstantFolding {
 /// A constant value that can be a scalar, vec3, or quaternion.
 #[derive(Debug, Clone, Copy)]
 enum ConstValue {
-    Scalar(f32),
-    Vec3([f32; 3]),
-    Quaternion([f32; 4]),
+    Scalar(f64),
+    Vec3([f64; 3]),
+    Quaternion([f64; 4]),
 }
 
 impl ConstValue {
@@ -122,7 +122,7 @@ impl ConstValue {
         }
     }
 
-    fn extract_num(ast: &Ast) -> Option<f32> {
+    fn extract_num(ast: &Ast) -> Option<f64> {
         match ast {
             Ast::Num(n) => Some(*n),
             _ => None,
@@ -143,21 +143,21 @@ impl ConstValue {
         }
     }
 
-    fn as_scalar(self) -> Option<f32> {
+    fn as_scalar(self) -> Option<f64> {
         match self {
             ConstValue::Scalar(s) => Some(s),
             _ => None,
         }
     }
 
-    fn as_vec3(self) -> Option<[f32; 3]> {
+    fn as_vec3(self) -> Option<[f64; 3]> {
         match self {
             ConstValue::Vec3(v) => Some(v),
             _ => None,
         }
     }
 
-    fn as_quaternion(self) -> Option<[f32; 4]> {
+    fn as_quaternion(self) -> Option<[f64; 4]> {
         match self {
             ConstValue::Quaternion(q) => Some(q),
             _ => None,
@@ -298,7 +298,7 @@ fn evaluate_quaternion_function(name: &str, args: &[ConstValue]) -> Option<Const
 }
 
 /// Spherical linear interpolation for quaternions.
-fn slerp_impl(a: &[f32; 4], b: &[f32; 4], t: f32) -> [f32; 4] {
+fn slerp_impl(a: &[f64; 4], b: &[f64; 4], t: f64) -> [f64; 4] {
     let mut dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
 
     // If dot < 0, negate one quaternion to take shorter path
@@ -350,7 +350,7 @@ fn slerp_impl(a: &[f32; 4], b: &[f32; 4], t: f32) -> [f32; 4] {
 }
 
 /// Rotate a vec3 by a quaternion using the optimized formula.
-fn rotate_vec3_by_quat(v: &[f32; 3], q: &[f32; 4]) -> [f32; 3] {
+fn rotate_vec3_by_quat(v: &[f64; 3], q: &[f64; 4]) -> [f64; 3] {
     let (qx, qy, qz, qw) = (q[0], q[1], q[2], q[3]);
 
     // t = 2 * (q_xyz × v)
@@ -388,14 +388,14 @@ mod tests {
         optimize(expr.ast().clone(), &passes)
     }
 
-    fn optimized_scalar(input: &str) -> f32 {
+    fn optimized_scalar(input: &str) -> f64 {
         match optimized(input) {
             Ast::Num(n) => n,
             other => panic!("expected Num, got {other:?}"),
         }
     }
 
-    fn approx_eq(a: f32, b: f32) -> bool {
+    fn approx_eq(a: f64, b: f64) -> bool {
         (a - b).abs() < 0.001
     }
 

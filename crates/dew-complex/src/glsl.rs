@@ -19,6 +19,8 @@ pub enum GlslError {
     },
     /// Conditionals require scalar types.
     UnsupportedTypeForConditional(Type),
+    /// Operation not supported for this type.
+    UnsupportedOperation(&'static str),
 }
 
 impl std::fmt::Display for GlslError {
@@ -31,6 +33,9 @@ impl std::fmt::Display for GlslError {
             }
             GlslError::UnsupportedTypeForConditional(t) => {
                 write!(f, "conditionals require scalar type, got {t}")
+            }
+            GlslError::UnsupportedOperation(op) => {
+                write!(f, "unsupported operation for complex: {op}")
             }
         }
     }
@@ -165,6 +170,12 @@ fn emit_binop(op: BinOp, left: GlslExpr, right: GlslExpr) -> Result<GlslExpr, Gl
         BinOp::Mul => emit_mul(left, right),
         BinOp::Div => emit_div(left, right),
         BinOp::Pow => emit_pow(left, right),
+        // Bitwise ops not supported for complex numbers
+        BinOp::Rem => Err(GlslError::UnsupportedOperation("%")),
+        BinOp::BitAnd => Err(GlslError::UnsupportedOperation("&")),
+        BinOp::BitOr => Err(GlslError::UnsupportedOperation("|")),
+        BinOp::Shl => Err(GlslError::UnsupportedOperation("<<")),
+        BinOp::Shr => Err(GlslError::UnsupportedOperation(">>")),
     }
 }
 
@@ -291,6 +302,7 @@ fn emit_unaryop(op: UnaryOp, inner: GlslExpr) -> Result<GlslExpr, GlslError> {
                 typ: Type::Scalar,
             })
         }
+        UnaryOp::BitNot => Err(GlslError::UnsupportedOperation("~")),
     }
 }
 

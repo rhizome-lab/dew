@@ -113,19 +113,19 @@ impl Pass for LinalgConstantFolding {
 /// A constant value that can be folded.
 #[derive(Debug, Clone)]
 enum ConstValue {
-    Scalar(f32),
-    Vec2([f32; 2]),
+    Scalar(f64),
+    Vec2([f64; 2]),
     #[cfg(feature = "3d")]
-    Vec3([f32; 3]),
+    Vec3([f64; 3]),
     #[cfg(feature = "4d")]
-    Vec4([f32; 4]),
+    Vec4([f64; 4]),
 }
 
 impl ConstValue {
     /// Try to interpret an AST as a constant value.
     fn from_ast(ast: &Ast) -> Option<Self> {
         match ast {
-            Ast::Num(n) => Some(ConstValue::Scalar(*n)),
+            Ast::Num(n) => Some(ConstValue::Scalar(*n as f64)),
 
             Ast::Call(name, args) => match (name.as_str(), args.len()) {
                 ("vec2", 2) => {
@@ -156,9 +156,9 @@ impl ConstValue {
     }
 
     /// Helper to extract a scalar from an AST.
-    fn as_scalar(ast: &Ast) -> Option<f32> {
+    fn as_scalar(ast: &Ast) -> Option<f64> {
         match ast {
-            Ast::Num(n) => Some(*n),
+            Ast::Num(n) => Some(*n as f64),
             _ => None,
         }
     }

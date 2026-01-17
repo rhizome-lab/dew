@@ -94,8 +94,8 @@ impl Pass for ComplexConstantFolding {
 /// A constant value that can be a scalar or complex.
 #[derive(Debug, Clone, Copy)]
 enum ConstValue {
-    Scalar(f32),
-    Complex([f32; 2]),
+    Scalar(f64),
+    Complex([f64; 2]),
 }
 
 impl ConstValue {
@@ -142,14 +142,14 @@ impl ConstValue {
         }
     }
 
-    fn as_scalar(self) -> Option<f32> {
+    fn as_scalar(self) -> Option<f64> {
         match self {
             ConstValue::Scalar(s) => Some(s),
             _ => None,
         }
     }
 
-    fn as_complex(self) -> Option<[f32; 2]> {
+    fn as_complex(self) -> Option<[f64; 2]> {
         match self {
             ConstValue::Complex(c) => Some(c),
             ConstValue::Scalar(s) => Some([s, 0.0]), // Scalar can be treated as complex with im=0
@@ -268,7 +268,7 @@ fn evaluate_complex_function(name: &str, args: &[ConstValue]) -> Option<ConstVal
                 (ConstValue::Scalar(s), ConstValue::Complex(w)) => {
                     // Scalar^Complex: treat scalar as complex with im=0
                     let r = s.abs();
-                    let theta = if *s >= 0.0 { 0.0 } else { std::f32::consts::PI };
+                    let theta = if *s >= 0.0 { 0.0 } else { std::f64::consts::PI };
                     let ln_r = r.ln();
                     let re = w[0] * ln_r - w[1] * theta;
                     let im = w[0] * theta + w[1] * ln_r;
@@ -304,14 +304,14 @@ mod tests {
         optimize(expr.ast().clone(), &passes)
     }
 
-    fn optimized_scalar(input: &str) -> f32 {
+    fn optimized_scalar(input: &str) -> f64 {
         match optimized(input) {
             Ast::Num(n) => n,
             other => panic!("expected Num, got {other:?}"),
         }
     }
 
-    fn approx_eq(a: f32, b: f32) -> bool {
+    fn approx_eq(a: f64, b: f64) -> bool {
         (a - b).abs() < 0.001
     }
 
@@ -381,7 +381,7 @@ mod tests {
     #[test]
     fn test_arg() {
         let v = optimized_scalar("arg(complex(1, 1))");
-        assert!(approx_eq(v, std::f32::consts::FRAC_PI_4));
+        assert!(approx_eq(v, std::f64::consts::FRAC_PI_4));
     }
 
     // Norm (squared magnitude)

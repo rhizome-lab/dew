@@ -71,7 +71,7 @@ impl Pass for ScalarConstantFolding {
         };
 
         // Check if all arguments are constant numbers
-        let const_args: Option<Vec<f32>> = args
+        let const_args: Option<Vec<f64>> = args
             .iter()
             .map(|a| match a {
                 Ast::Num(n) => Some(*n),
@@ -90,12 +90,12 @@ impl Pass for ScalarConstantFolding {
 
 /// Evaluates a scalar function with constant arguments.
 /// Returns None if the function is unknown or has wrong arity.
-fn evaluate_scalar_function(name: &str, args: &[f32]) -> Option<f32> {
+fn evaluate_scalar_function(name: &str, args: &[f64]) -> Option<f64> {
     match (name, args.len()) {
         // Constants (0-arg)
-        ("pi", 0) => Some(std::f32::consts::PI),
-        ("e", 0) => Some(std::f32::consts::E),
-        ("tau", 0) => Some(std::f32::consts::TAU),
+        ("pi", 0) => Some(std::f64::consts::PI),
+        ("e", 0) => Some(std::f64::consts::E),
+        ("tau", 0) => Some(std::f64::consts::TAU),
 
         // Trigonometric (1-arg)
         ("sin", 1) => Some(args[0].sin()),
@@ -195,7 +195,7 @@ mod tests {
         result.to_string()
     }
 
-    fn optimized_value(input: &str) -> f32 {
+    fn optimized_value(input: &str) -> f64 {
         let expr = Expr::parse(input).unwrap();
         let mut passes: Vec<&dyn Pass> = standard_passes();
         passes.push(&ScalarConstantFolding);
@@ -210,19 +210,19 @@ mod tests {
     #[test]
     fn test_pi() {
         let v = optimized_value("pi()");
-        assert!((v - std::f32::consts::PI).abs() < 0.0001);
+        assert!((v - std::f64::consts::PI).abs() < 0.0001);
     }
 
     #[test]
     fn test_e() {
         let v = optimized_value("e()");
-        assert!((v - std::f32::consts::E).abs() < 0.0001);
+        assert!((v - std::f64::consts::E).abs() < 0.0001);
     }
 
     #[test]
     fn test_tau() {
         let v = optimized_value("tau()");
-        assert!((v - std::f32::consts::TAU).abs() < 0.0001);
+        assert!((v - std::f64::consts::TAU).abs() < 0.0001);
     }
 
     // Trigonometric

@@ -20,6 +20,8 @@ pub enum WgslError {
     },
     /// Conditionals require scalar types.
     UnsupportedTypeForConditional(Type),
+    /// Operation not supported for this type.
+    UnsupportedOperation(&'static str),
 }
 
 impl std::fmt::Display for WgslError {
@@ -32,6 +34,9 @@ impl std::fmt::Display for WgslError {
             }
             WgslError::UnsupportedTypeForConditional(t) => {
                 write!(f, "conditionals require scalar type, got {t}")
+            }
+            WgslError::UnsupportedOperation(op) => {
+                write!(f, "unsupported operation for quaternion: {op}")
             }
         }
     }
@@ -165,6 +170,11 @@ fn emit_binop(op: BinOp, left: WgslExpr, right: WgslExpr) -> Result<WgslExpr, Wg
         BinOp::Mul => emit_mul(left, right),
         BinOp::Div => emit_div(left, right),
         BinOp::Pow => emit_pow(left, right),
+        BinOp::Rem => Err(WgslError::UnsupportedOperation("%")),
+        BinOp::BitAnd => Err(WgslError::UnsupportedOperation("&")),
+        BinOp::BitOr => Err(WgslError::UnsupportedOperation("|")),
+        BinOp::Shl => Err(WgslError::UnsupportedOperation("<<")),
+        BinOp::Shr => Err(WgslError::UnsupportedOperation(">>")),
     }
 }
 
@@ -312,6 +322,7 @@ fn emit_unaryop(op: UnaryOp, inner: WgslExpr) -> Result<WgslExpr, WgslError> {
                 typ: Type::Scalar,
             })
         }
+        UnaryOp::BitNot => Err(WgslError::UnsupportedOperation("~")),
     }
 }
 

@@ -19,6 +19,8 @@ pub enum LuaError {
     },
     /// Conditionals require scalar types.
     UnsupportedTypeForConditional(Type),
+    /// Operation not supported for this type.
+    UnsupportedOperation(&'static str),
 }
 
 impl std::fmt::Display for LuaError {
@@ -31,6 +33,9 @@ impl std::fmt::Display for LuaError {
             }
             LuaError::UnsupportedTypeForConditional(t) => {
                 write!(f, "conditionals require scalar type, got {t}")
+            }
+            LuaError::UnsupportedOperation(op) => {
+                write!(f, "unsupported operation for complex: {op}")
             }
         }
     }
@@ -150,7 +155,7 @@ pub fn emit_lua(ast: &Ast, var_types: &HashMap<String, Type>) -> Result<LuaExpr,
     }
 }
 
-fn format_float(n: f32) -> String {
+fn format_float(n: f64) -> String {
     if n.fract() == 0.0 && n.abs() < 1e10 {
         format!("{:.1}", n)
     } else {
@@ -165,6 +170,12 @@ fn emit_binop(op: BinOp, left: LuaExpr, right: LuaExpr) -> Result<LuaExpr, LuaEr
         BinOp::Mul => emit_mul(left, right),
         BinOp::Div => emit_div(left, right),
         BinOp::Pow => emit_pow(left, right),
+        // Bitwise ops not supported for complex numbers
+        BinOp::Rem => Err(LuaError::UnsupportedOperation("%")),
+        BinOp::BitAnd => Err(LuaError::UnsupportedOperation("&")),
+        BinOp::BitOr => Err(LuaError::UnsupportedOperation("|")),
+        BinOp::Shl => Err(LuaError::UnsupportedOperation("<<")),
+        BinOp::Shr => Err(LuaError::UnsupportedOperation(">>")),
     }
 }
 
@@ -329,6 +340,7 @@ fn emit_unaryop(op: UnaryOp, inner: LuaExpr) -> Result<LuaExpr, LuaError> {
                 typ: Type::Scalar,
             })
         }
+        UnaryOp::BitNot => Err(LuaError::UnsupportedOperation("~")),
     }
 }
 
