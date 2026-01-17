@@ -39,19 +39,20 @@
 //!
 //! # Functions
 //!
-//! | Function         | Description                              |
-//! |------------------|------------------------------------------|
-//! | `re(z)`          | Real part → scalar                       |
-//! | `im(z)`          | Imaginary part → scalar                  |
-//! | `conj(z)`        | Conjugate (a - bi) → complex             |
-//! | `abs(z)`         | Magnitude \|z\| → scalar                 |
-//! | `arg(z)`         | Argument (angle) → scalar                |
-//! | `norm(z)`        | Squared magnitude → scalar               |
-//! | `exp(z)`         | Complex exponential → complex            |
-//! | `log(z)`         | Complex logarithm → complex              |
-//! | `sqrt(z)`        | Complex square root → complex            |
-//! | `pow(z, n)`      | Complex power → complex                  |
-//! | `polar(r, theta)`| From polar form → complex                |
+//! | Function          | Description                              |
+//! |-------------------|------------------------------------------|
+//! | `complex(re, im)` | From cartesian form → complex            |
+//! | `polar(r, theta)` | From polar form → complex                |
+//! | `re(z)`           | Real part → scalar                       |
+//! | `im(z)`           | Imaginary part → scalar                  |
+//! | `conj(z)`         | Conjugate (a - bi) → complex             |
+//! | `abs(z)`          | Magnitude \|z\| → scalar                 |
+//! | `arg(z)`          | Argument (angle) → scalar                |
+//! | `norm(z)`         | Squared magnitude → scalar               |
+//! | `exp(z)`          | Complex exponential → complex            |
+//! | `log(z)`          | Complex logarithm → complex              |
+//! | `sqrt(z)`         | Complex square root → complex            |
+//! | `pow(z, n)`       | Complex power → complex                  |
 //!
 //! # Operators
 //!
@@ -86,8 +87,12 @@ pub mod lua;
 #[cfg(feature = "cranelift")]
 pub mod cranelift;
 
+#[cfg(feature = "optimize")]
+pub mod optimize;
+
 pub use funcs::{
-    Abs, Arg, Conj, Exp, Im, Log, Norm, Polar, Pow, Re, Sqrt, complex_registry, register_complex,
+    Abs, Arg, Complex, Conj, Exp, Im, Log, Norm, Polar, Pow, Re, Sqrt, complex_registry,
+    register_complex,
 };
 
 // ============================================================================

@@ -41,6 +41,8 @@
 //!
 //! | Function              | Description                              |
 //! |-----------------------|------------------------------------------|
+//! | `vec3(x, y, z)`       | Construct vector → vec3                  |
+//! | `quat(x, y, z, w)`    | Construct quaternion → quaternion        |
 //! | `conj(q)`             | Conjugate → quaternion                   |
 //! | `length(q)`           | Magnitude → scalar                       |
 //! | `normalize(q)`        | Unit quaternion → quaternion             |
@@ -93,9 +95,12 @@ pub mod lua;
 #[cfg(feature = "cranelift")]
 pub mod cranelift;
 
+#[cfg(feature = "optimize")]
+pub mod optimize;
+
 pub use funcs::{
-    AxisAngle, Conj, Dot, Inverse, Length, Lerp, Normalize, Rotate, Slerp, quaternion_registry,
-    register_quaternion,
+    AxisAngle, Conj, Dot, Inverse, Length, Lerp, Normalize, QuatConstructor, Rotate, Slerp,
+    Vec3Constructor, quaternion_registry, register_quaternion,
 };
 
 // ============================================================================

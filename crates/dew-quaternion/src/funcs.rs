@@ -389,6 +389,63 @@ fn rotate_vec3_by_quat<T: Float>(v: &[T; 3], q: &[T; 4]) -> [T; 3] {
 }
 
 // ============================================================================
+// Vec3 construction
+// ============================================================================
+
+/// Construct Vec3 from three scalars: vec3(x, y, z) -> Vec3
+pub struct Vec3Constructor;
+
+impl<T: Float> QuaternionFn<T> for Vec3Constructor {
+    fn name(&self) -> &str {
+        "vec3"
+    }
+
+    fn signatures(&self) -> Vec<Signature> {
+        vec![Signature {
+            args: vec![Type::Scalar, Type::Scalar, Type::Scalar],
+            ret: Type::Vec3,
+        }]
+    }
+
+    fn call(&self, args: &[Value<T>]) -> Value<T> {
+        match (&args[0], &args[1], &args[2]) {
+            (Value::Scalar(x), Value::Scalar(y), Value::Scalar(z)) => Value::Vec3([*x, *y, *z]),
+            _ => unreachable!(),
+        }
+    }
+}
+
+// ============================================================================
+// Quaternion construction
+// ============================================================================
+
+/// Construct Quaternion from four scalars: quat(x, y, z, w) -> Quaternion
+/// Uses [x, y, z, w] order (scalar last, matching GLM/glTF convention).
+pub struct QuatConstructor;
+
+impl<T: Float> QuaternionFn<T> for QuatConstructor {
+    fn name(&self) -> &str {
+        "quat"
+    }
+
+    fn signatures(&self) -> Vec<Signature> {
+        vec![Signature {
+            args: vec![Type::Scalar, Type::Scalar, Type::Scalar, Type::Scalar],
+            ret: Type::Quaternion,
+        }]
+    }
+
+    fn call(&self, args: &[Value<T>]) -> Value<T> {
+        match (&args[0], &args[1], &args[2], &args[3]) {
+            (Value::Scalar(x), Value::Scalar(y), Value::Scalar(z), Value::Scalar(w)) => {
+                Value::Quaternion([*x, *y, *z, *w])
+            }
+            _ => unreachable!(),
+        }
+    }
+}
+
+// ============================================================================
 // Registry helper
 // ============================================================================
 
@@ -403,6 +460,8 @@ pub fn register_quaternion<T: Float + 'static>(registry: &mut FunctionRegistry<T
     registry.register(Slerp);
     registry.register(AxisAngle);
     registry.register(Rotate);
+    registry.register(Vec3Constructor);
+    registry.register(QuatConstructor);
 }
 
 /// Create a new registry with all standard quaternion functions.

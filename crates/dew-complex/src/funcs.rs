@@ -372,6 +372,33 @@ impl<T: Float> ComplexFn<T> for Polar {
 }
 
 // ============================================================================
+// Cartesian construction
+// ============================================================================
+
+/// Construct from cartesian: complex(re, im) = re + im*i
+pub struct Complex;
+
+impl<T: Float> ComplexFn<T> for Complex {
+    fn name(&self) -> &str {
+        "complex"
+    }
+
+    fn signatures(&self) -> Vec<Signature> {
+        vec![Signature {
+            args: vec![Type::Scalar, Type::Scalar],
+            ret: Type::Complex,
+        }]
+    }
+
+    fn call(&self, args: &[Value<T>]) -> Value<T> {
+        match (&args[0], &args[1]) {
+            (Value::Scalar(re), Value::Scalar(im)) => Value::Complex([*re, *im]),
+            _ => unreachable!(),
+        }
+    }
+}
+
+// ============================================================================
 // Registry helper
 // ============================================================================
 
@@ -388,6 +415,7 @@ pub fn register_complex<T: Float + 'static>(registry: &mut FunctionRegistry<T>) 
     registry.register(Sqrt);
     registry.register(Pow);
     registry.register(Polar);
+    registry.register(Complex);
 }
 
 /// Create a new registry with all standard complex functions.
@@ -493,5 +521,15 @@ mod tests {
         } else {
             panic!("expected complex");
         }
+    }
+
+    #[test]
+    fn test_complex() {
+        // complex(3, 4) = 3 + 4i
+        let result = eval_expr(
+            "complex(re, im)",
+            &[("re", Value::Scalar(3.0)), ("im", Value::Scalar(4.0))],
+        );
+        assert_eq!(result, Value::Complex([3.0, 4.0]));
     }
 }

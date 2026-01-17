@@ -11,6 +11,7 @@ wgsl = ["rhizome-dew-cond/wgsl"]
 glsl = ["rhizome-dew-cond/glsl"]
 lua = ["mlua", "rhizome-dew-cond/lua"]
 cranelift = ["cranelift-codegen", "cranelift-frontend", "cranelift-jit", "cranelift-module", "rhizome-dew-cond/cranelift"]
+optimize = ["rhizome-dew-core/optimize"]  # Expression optimization passes
 all = ["wgsl", "glsl", "lua", "cranelift"]
 
 [dependencies]

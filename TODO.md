@@ -112,6 +112,21 @@ via passthrough.
 
 ## Future Work
 
+### Domain Crate Composition
+
+Currently, domain crates (scalar, linalg, complex, quaternion) have independent type systems.
+While composition traits exist (`ComplexValue<T>`, `QuaternionValue<T>`, etc.), users must
+create their own combined `Value` enum to use multiple domains together.
+
+Consider:
+- [ ] Provide a pre-built "combined" crate with all domains integrated
+- [ ] Investigate if traits can be made more composable automatically
+- [ ] Document the composition pattern more clearly with examples
+- [ ] Consider whether linalg's `vec3` and quaternion's `vec3` should share a representation
+
+The goal: users should be able to use scalar + linalg + complex + quaternion all at once
+without boilerplate.
+
 ### Editor Support
 
 - [x] TextMate grammar (enables VSCode + Shiki/VitePress)

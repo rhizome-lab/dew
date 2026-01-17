@@ -234,6 +234,45 @@ passes.push(&LinalgConstantFolding);
 where vector types are visible in the AST (e.g., `vec2(...)` calls). Operations on
 typed variables like `a + b` where `a, b: Vec3` are not yet optimized.
 
+### dew-complex (feature = "optimize")
+
+`ComplexConstantFolding` evaluates complex number operations at compile time:
+
+```rust
+use rhizome_dew_core::optimize::{optimize, standard_passes};
+use rhizome_dew_complex::optimize::ComplexConstantFolding;
+
+let mut passes = standard_passes();
+passes.push(&ComplexConstantFolding);
+
+// abs(complex(3, 4)) → 5
+// complex(1, 2) + complex(3, 4) → complex(4, 6)
+// re(complex(3, 4)) → 3
+```
+
+Uses `complex(re, im)` or `polar(r, theta)` as constructors for complex values.
+Supports: re, im, conj, abs, arg, norm, exp, log, sqrt, pow.
+
+### dew-quaternion (feature = "optimize")
+
+`QuaternionConstantFolding` evaluates quaternion and vector operations at compile time:
+
+```rust
+use rhizome_dew_core::optimize::{optimize, standard_passes};
+use rhizome_dew_quaternion::optimize::QuaternionConstantFolding;
+
+let mut passes = standard_passes();
+passes.push(&QuaternionConstantFolding);
+
+// length(vec3(3, 4, 0)) → 5
+// dot(vec3(1, 0, 0), vec3(0, 1, 0)) → 0
+// normalize(quat(0, 0, 0, 2)) → quat(0, 0, 0, 1)
+// conj(quat(1, 2, 3, 4)) → quat(-1, -2, -3, 4)
+```
+
+Uses `vec3(x, y, z)` and `quat(x, y, z, w)` as constructors. Supports: length, dot,
+normalize, conj, inverse, lerp, slerp, axis_angle, rotate.
+
 ### Custom Passes
 
 Implement the `Pass` trait for domain-specific optimizations:
