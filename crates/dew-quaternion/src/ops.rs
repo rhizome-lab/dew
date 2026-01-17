@@ -18,6 +18,14 @@ where
         BinOp::Mul => apply_mul(left, right),
         BinOp::Div => apply_div(left, right),
         BinOp::Pow => apply_pow(left, right),
+        // Bitwise/modulo operations not supported for quaternions
+        BinOp::Rem | BinOp::BitAnd | BinOp::BitOr | BinOp::Shl | BinOp::Shr => {
+            Err(Error::BinaryTypeMismatch {
+                op,
+                left: left.typ(),
+                right: right.typ(),
+            })
+        }
     }
 }
 
@@ -30,6 +38,11 @@ where
     match op {
         UnaryOp::Neg => apply_neg(val),
         UnaryOp::Not => apply_not(val),
+        // Bitwise NOT not supported for quaternions
+        UnaryOp::BitNot => Err(Error::UnaryTypeMismatch {
+            op,
+            operand: val.typ(),
+        }),
     }
 }
 

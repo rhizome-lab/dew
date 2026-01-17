@@ -237,6 +237,8 @@ pub enum EvalError {
         expected: usize,
         got: usize,
     },
+    /// Operation not supported for this numeric type (e.g., bitwise ops on floats).
+    UnsupportedOperation(String),
 }
 
 impl std::fmt::Display for EvalError {
@@ -257,6 +259,9 @@ impl std::fmt::Display for EvalError {
                     func, expected, got
                 )
             }
+            EvalError::UnsupportedOperation(op) => {
+                write!(f, "unsupported operation for this numeric type: '{}'", op)
+            }
         }
     }
 }
@@ -269,13 +274,19 @@ impl std::error::Error for EvalError {}
 
 #[derive(Debug, Clone, PartialEq)]
 enum Token {
-    Number(f32),
+    Number(f64),
     Ident(String),
     Plus,
     Minus,
     Star,
     Slash,
     Caret,
+    Percent,
+    Ampersand,
+    Pipe,
+    Tilde,
+    Shl,
+    Shr,
     LParen,
     RParen,
     #[cfg(feature = "func")]
@@ -340,7 +351,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn read_number(&mut self) -> Result<f32, ParseError> {
+    fn read_number(&mut self) -> Result<f64, ParseError> {
         let start = self.pos;
         while let Some(c) = self.peek_char() {
             if c.is_ascii_digit() || c == '.' {
@@ -394,6 +405,22 @@ impl<'a> Lexer<'a> {
                 self.next_char();
                 Ok(Token::Caret)
             }
+            '%' => {
+                self.next_char();
+                Ok(Token::Percent)
+            }
+            '&' => {
+                self.next_char();
+                Ok(Token::Ampersand)
+            }
+            '|' => {
+                self.next_char();
+                Ok(Token::Pipe)
+            }
+            '~' => {
+                self.next_char();
+                Ok(Token::Tilde)
+            }
             '(' => {
                 self.next_char();
                 Ok(Token::LParen)
@@ -407,24 +434,42 @@ impl<'a> Lexer<'a> {
                 self.next_char();
                 Ok(Token::Comma)
             }
-            #[cfg(feature = "cond")]
             '<' => {
                 self.next_char();
-                if self.peek_char() == Some('=') {
+                if self.peek_char() == Some('<') {
                     self.next_char();
-                    Ok(Token::Le)
+                    Ok(Token::Shl)
                 } else {
-                    Ok(Token::Lt)
+                    #[cfg(feature = "cond")]
+                    {
+                        if self.peek_char() == Some('=') {
+                            self.next_char();
+                            Ok(Token::Le)
+                        } else {
+                            Ok(Token::Lt)
+                        }
+                    }
+                    #[cfg(not(feature = "cond"))]
+                    Err(ParseError::UnexpectedChar('<'))
                 }
             }
-            #[cfg(feature = "cond")]
             '>' => {
                 self.next_char();
-                if self.peek_char() == Some('=') {
+                if self.peek_char() == Some('>') {
                     self.next_char();
-                    Ok(Token::Ge)
+                    Ok(Token::Shr)
                 } else {
-                    Ok(Token::Gt)
+                    #[cfg(feature = "cond")]
+                    {
+                        if self.peek_char() == Some('=') {
+                            self.next_char();
+                            Ok(Token::Ge)
+                        } else {
+                            Ok(Token::Gt)
+                        }
+                    }
+                    #[cfg(not(feature = "cond"))]
+                    Err(ParseError::UnexpectedChar('>'))
                 }
             }
             #[cfg(feature = "cond")]
@@ -501,7 +546,7 @@ impl<'a> Lexer<'a> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Ast {
     /// Numeric literal (e.g., `42`, `3.14`).
-    Num(f32),
+    Num(f64),
     /// Variable reference, resolved at evaluation time.
     Var(String),
     /// Binary operation: `left op right`.
@@ -525,7 +570,7 @@ pub enum Ast {
     If(Box<Ast>, Box<Ast>, Box<Ast>),
 }
 
-/// Binary operators for arithmetic operations.
+/// Binary operators for arithmetic and bitwise operations.
 ///
 /// Used in [`Ast::BinOp`] to specify the operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -540,6 +585,16 @@ pub enum BinOp {
     Div,
     /// Exponentiation (`^`), right-associative.
     Pow,
+    /// Remainder/modulo (`%`).
+    Rem,
+    /// Bitwise AND (`&`).
+    BitAnd,
+    /// Bitwise OR (`|`).
+    BitOr,
+    /// Left shift (`<<`).
+    Shl,
+    /// Right shift (`>>`).
+    Shr,
 }
 
 /// Comparison operators (requires `cond` feature).
@@ -574,6 +629,8 @@ pub enum UnaryOp {
     /// Returns `1.0` if operand is `0.0`, otherwise `0.0`.
     #[cfg(feature = "cond")]
     Not,
+    /// Bitwise NOT (`~x`).
+    BitNot,
 }
 
 // ============================================================================
@@ -642,6 +699,11 @@ impl std::fmt::Display for BinOp {
             BinOp::Mul => write!(f, "*"),
             BinOp::Div => write!(f, "/"),
             BinOp::Pow => write!(f, "^"),
+            BinOp::Rem => write!(f, "%"),
+            BinOp::BitAnd => write!(f, "&"),
+            BinOp::BitOr => write!(f, "|"),
+            BinOp::Shl => write!(f, "<<"),
+            BinOp::Shr => write!(f, ">>"),
         }
     }
 }
@@ -652,6 +714,7 @@ impl std::fmt::Display for UnaryOp {
             UnaryOp::Neg => write!(f, "-"),
             #[cfg(feature = "cond")]
             UnaryOp::Not => write!(f, "not "),
+            UnaryOp::BitNot => write!(f, "~"),
         }
     }
 }
@@ -772,14 +835,17 @@ impl<'a> Parser<'a> {
 
     // Precedence (low to high):
     // 1. if/then/else (cond feature)
-    // 2. or (cond feature)
-    // 3. and (cond feature)
-    // 4. comparison (<, <=, >, >=, ==, !=) (cond feature)
-    // 5. add/sub
-    // 6. mul/div
-    // 7. power
-    // 8. unary (-, not)
-    // 9. primary
+    // 2. or (cond feature, keyword)
+    // 3. and (cond feature, keyword)
+    // 4. bit_or (|)
+    // 5. bit_and (&)
+    // 6. comparison (<, <=, >, >=, ==, !=) (cond feature)
+    // 7. shift (<<, >>)
+    // 8. add/sub (+, -)
+    // 9. mul/div/rem (*, /, %)
+    // 10. power (^)
+    // 11. unary (-, ~, not)
+    // 12. primary
 
     fn parse_expr(&mut self) -> Result<Ast, ParseError> {
         #[cfg(feature = "cond")]
@@ -788,7 +854,7 @@ impl<'a> Parser<'a> {
         }
         #[cfg(not(feature = "cond"))]
         {
-            self.parse_add_sub()
+            self.parse_bit_or()
         }
     }
 
@@ -826,12 +892,42 @@ impl<'a> Parser<'a> {
 
     #[cfg(feature = "cond")]
     fn parse_and(&mut self) -> Result<Ast, ParseError> {
-        let mut left = self.parse_compare()?;
+        let mut left = self.parse_bit_or()?;
 
         while self.current == Token::And {
             self.advance()?;
-            let right = self.parse_compare()?;
+            let right = self.parse_bit_or()?;
             left = Ast::And(Box::new(left), Box::new(right));
+        }
+
+        Ok(left)
+    }
+
+    fn parse_bit_or(&mut self) -> Result<Ast, ParseError> {
+        let mut left = self.parse_bit_and()?;
+
+        while self.current == Token::Pipe {
+            self.advance()?;
+            let right = self.parse_bit_and()?;
+            left = Ast::BinOp(BinOp::BitOr, Box::new(left), Box::new(right));
+        }
+
+        Ok(left)
+    }
+
+    fn parse_bit_and(&mut self) -> Result<Ast, ParseError> {
+        #[cfg(feature = "cond")]
+        let mut left = self.parse_compare()?;
+        #[cfg(not(feature = "cond"))]
+        let mut left = self.parse_shift()?;
+
+        while self.current == Token::Ampersand {
+            self.advance()?;
+            #[cfg(feature = "cond")]
+            let right = self.parse_compare()?;
+            #[cfg(not(feature = "cond"))]
+            let right = self.parse_shift()?;
+            left = Ast::BinOp(BinOp::BitAnd, Box::new(left), Box::new(right));
         }
 
         Ok(left)
@@ -839,7 +935,7 @@ impl<'a> Parser<'a> {
 
     #[cfg(feature = "cond")]
     fn parse_compare(&mut self) -> Result<Ast, ParseError> {
-        let left = self.parse_add_sub()?;
+        let left = self.parse_shift()?;
 
         let op = match &self.current {
             Token::Lt => Some(CompareOp::Lt),
@@ -853,11 +949,33 @@ impl<'a> Parser<'a> {
 
         if let Some(op) = op {
             self.advance()?;
-            let right = self.parse_add_sub()?;
+            let right = self.parse_shift()?;
             Ok(Ast::Compare(op, Box::new(left), Box::new(right)))
         } else {
             Ok(left)
         }
+    }
+
+    fn parse_shift(&mut self) -> Result<Ast, ParseError> {
+        let mut left = self.parse_add_sub()?;
+
+        loop {
+            match &self.current {
+                Token::Shl => {
+                    self.advance()?;
+                    let right = self.parse_add_sub()?;
+                    left = Ast::BinOp(BinOp::Shl, Box::new(left), Box::new(right));
+                }
+                Token::Shr => {
+                    self.advance()?;
+                    let right = self.parse_add_sub()?;
+                    left = Ast::BinOp(BinOp::Shr, Box::new(left), Box::new(right));
+                }
+                _ => break,
+            }
+        }
+
+        Ok(left)
     }
 
     fn parse_add_sub(&mut self) -> Result<Ast, ParseError> {
@@ -897,6 +1015,11 @@ impl<'a> Parser<'a> {
                     let right = self.parse_power()?;
                     left = Ast::BinOp(BinOp::Div, Box::new(left), Box::new(right));
                 }
+                Token::Percent => {
+                    self.advance()?;
+                    let right = self.parse_power()?;
+                    left = Ast::BinOp(BinOp::Rem, Box::new(left), Box::new(right));
+                }
                 _ => break,
             }
         }
@@ -922,6 +1045,11 @@ impl<'a> Parser<'a> {
                 self.advance()?;
                 let inner = self.parse_unary()?;
                 Ok(Ast::UnaryOp(UnaryOp::Neg, Box::new(inner)))
+            }
+            Token::Tilde => {
+                self.advance()?;
+                let inner = self.parse_unary()?;
+                Ok(Ast::UnaryOp(UnaryOp::BitNot, Box::new(inner)))
             }
             #[cfg(feature = "cond")]
             Token::Not => {
@@ -1113,7 +1241,7 @@ fn eval_ast(
     funcs: &FunctionRegistry,
 ) -> Result<f32, EvalError> {
     match ast {
-        Ast::Num(n) => Ok(*n),
+        Ast::Num(n) => Ok(*n as f32),
         Ast::Var(name) => vars
             .get(name)
             .copied()
@@ -1121,27 +1249,33 @@ fn eval_ast(
         Ast::BinOp(op, l, r) => {
             let l = eval_ast(l, vars, funcs)?;
             let r = eval_ast(r, vars, funcs)?;
-            Ok(match op {
-                BinOp::Add => l + r,
-                BinOp::Sub => l - r,
-                BinOp::Mul => l * r,
-                BinOp::Div => l / r,
-                BinOp::Pow => l.powf(r),
-            })
+            match op {
+                BinOp::Add => Ok(l + r),
+                BinOp::Sub => Ok(l - r),
+                BinOp::Mul => Ok(l * r),
+                BinOp::Div => Ok(l / r),
+                BinOp::Pow => Ok(l.powf(r)),
+                BinOp::Rem => Ok(l % r),
+                BinOp::BitAnd => Err(EvalError::UnsupportedOperation("&".to_string())),
+                BinOp::BitOr => Err(EvalError::UnsupportedOperation("|".to_string())),
+                BinOp::Shl => Err(EvalError::UnsupportedOperation("<<".to_string())),
+                BinOp::Shr => Err(EvalError::UnsupportedOperation(">>".to_string())),
+            }
         }
         Ast::UnaryOp(op, inner) => {
             let v = eval_ast(inner, vars, funcs)?;
-            Ok(match op {
-                UnaryOp::Neg => -v,
+            match op {
+                UnaryOp::Neg => Ok(-v),
+                UnaryOp::BitNot => Err(EvalError::UnsupportedOperation("~".to_string())),
                 #[cfg(feature = "cond")]
                 UnaryOp::Not => {
                     if v == 0.0 {
-                        1.0
+                        Ok(1.0)
                     } else {
-                        0.0
+                        Ok(0.0)
                     }
                 }
-            })
+            }
         }
         #[cfg(feature = "cond")]
         Ast::Compare(op, l, r) => {
@@ -1212,7 +1346,7 @@ fn eval_ast(
 #[cfg(not(feature = "func"))]
 fn eval_ast(ast: &Ast, vars: &HashMap<String, f32>) -> Result<f32, EvalError> {
     match ast {
-        Ast::Num(n) => Ok(*n),
+        Ast::Num(n) => Ok(*n as f32),
         Ast::Var(name) => vars
             .get(name)
             .copied()
@@ -1220,27 +1354,33 @@ fn eval_ast(ast: &Ast, vars: &HashMap<String, f32>) -> Result<f32, EvalError> {
         Ast::BinOp(op, l, r) => {
             let l = eval_ast(l, vars)?;
             let r = eval_ast(r, vars)?;
-            Ok(match op {
-                BinOp::Add => l + r,
-                BinOp::Sub => l - r,
-                BinOp::Mul => l * r,
-                BinOp::Div => l / r,
-                BinOp::Pow => l.powf(r),
-            })
+            match op {
+                BinOp::Add => Ok(l + r),
+                BinOp::Sub => Ok(l - r),
+                BinOp::Mul => Ok(l * r),
+                BinOp::Div => Ok(l / r),
+                BinOp::Pow => Ok(l.powf(r)),
+                BinOp::Rem => Ok(l % r),
+                BinOp::BitAnd => Err(EvalError::UnsupportedOperation("&".to_string())),
+                BinOp::BitOr => Err(EvalError::UnsupportedOperation("|".to_string())),
+                BinOp::Shl => Err(EvalError::UnsupportedOperation("<<".to_string())),
+                BinOp::Shr => Err(EvalError::UnsupportedOperation(">>".to_string())),
+            }
         }
         Ast::UnaryOp(op, inner) => {
             let v = eval_ast(inner, vars)?;
-            Ok(match op {
-                UnaryOp::Neg => -v,
+            match op {
+                UnaryOp::Neg => Ok(-v),
+                UnaryOp::BitNot => Err(EvalError::UnsupportedOperation("~".to_string())),
                 #[cfg(feature = "cond")]
                 UnaryOp::Not => {
                     if v == 0.0 {
-                        1.0
+                        Ok(1.0)
                     } else {
-                        0.0
+                        Ok(0.0)
                     }
                 }
-            })
+            }
         }
         #[cfg(feature = "cond")]
         Ast::Compare(op, l, r) => {
@@ -1794,7 +1934,7 @@ mod proptest_tests {
 
         /// Numbers round-trip correctly
         #[test]
-        fn number_roundtrip(n in prop::num::f32::NORMAL) {
+        fn number_roundtrip(n in prop::num::f64::NORMAL) {
             let expr_str = format!("{:.6}", n);
             if let Ok(expr) = Expr::parse(&expr_str) {
                 // The parsed number should be close to the original

@@ -239,6 +239,12 @@ impl Pass for ConstantFolding {
                         BinOp::Mul => l * r,
                         BinOp::Div => l / r,
                         BinOp::Pow => l.powf(*r),
+                        BinOp::Rem => l % r,
+                        // Bitwise ops don't fold for floats - they'll be handled
+                        // in integer-specific evaluation
+                        BinOp::BitAnd | BinOp::BitOr | BinOp::Shl | BinOp::Shr => {
+                            return None;
+                        }
                     };
                     Some(Ast::Num(result))
                 } else {
@@ -352,7 +358,7 @@ impl AlgebraicIdentities {
     }
 
     fn is_one(ast: &Ast) -> bool {
-        matches!(ast, Ast::Num(n) if (*n - 1.0).abs() < f32::EPSILON)
+        matches!(ast, Ast::Num(n) if (*n - 1.0).abs() < f64::EPSILON)
     }
 }
 
@@ -517,7 +523,7 @@ impl Pass for PowerReduction {
             if let Ast::Num(n) = exp.as_ref() {
                 let n_int = *n as i32;
                 // Only reduce small integer powers
-                if (*n - n_int as f32).abs() < f32::EPSILON {
+                if (*n - n_int as f64).abs() < f64::EPSILON {
                     match n_int {
                         2 => {
                             return Some(Ast::BinOp(BinOp::Mul, base.clone(), base.clone()));

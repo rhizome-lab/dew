@@ -151,6 +151,11 @@ fn emit(ast: &Ast) -> Result<String, WgslError> {
                 BinOp::Mul => Ok(format!("{} * {}", l, r)),
                 BinOp::Div => Ok(format!("{} / {}", l, r)),
                 BinOp::Pow => Ok(format!("pow({}, {})", emit(left)?, emit(right)?)),
+                BinOp::Rem => Ok(format!("{} % {}", l, r)),
+                BinOp::BitAnd => Ok(format!("{} & {}", l, r)),
+                BinOp::BitOr => Ok(format!("{} | {}", l, r)),
+                BinOp::Shl => Ok(format!("{} << {}", l, r)),
+                BinOp::Shr => Ok(format!("{} >> {}", l, r)),
             }
         }
         Ast::UnaryOp(op, inner) => {
@@ -162,6 +167,7 @@ fn emit(ast: &Ast) -> Result<String, WgslError> {
                     let bool_expr = cond::scalar_to_bool(&inner_str);
                     Ok(cond::bool_to_scalar(&cond::emit_not(&bool_expr)))
                 }
+                UnaryOp::BitNot => Ok(format!("~{}", inner_str)),
             }
         }
         Ast::Compare(op, left, right) => {
@@ -264,13 +270,16 @@ fn emit_with_parens(
 
 fn precedence(op: BinOp) -> u8 {
     match op {
+        BinOp::BitOr => 0,
+        BinOp::BitAnd => 0,
+        BinOp::Shl | BinOp::Shr => 0,
         BinOp::Add | BinOp::Sub => 1,
-        BinOp::Mul | BinOp::Div => 2,
+        BinOp::Mul | BinOp::Div | BinOp::Rem => 2,
         BinOp::Pow => 3,
     }
 }
 
-fn format_float(n: f32) -> String {
+fn format_float(n: f64) -> String {
     if n.fract() == 0.0 {
         format!("{:.1}", n)
     } else {

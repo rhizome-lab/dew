@@ -126,8 +126,80 @@
 //! assert!((result - std::f64::consts::SQRT_2).abs() < 1e-10);
 //! ```
 
-use num_traits::Float;
+use num_traits::{Float, Num, NumCast, One, PrimInt, Zero};
 use rhizome_dew_core::{Ast, BinOp, CompareOp, UnaryOp};
+
+// ============================================================================
+// Numeric Trait
+// ============================================================================
+
+/// Trait for types that can be used as numeric values in expressions.
+///
+/// This is a marker trait that combines the necessary bounds for basic
+/// arithmetic operations. Both float and integer types implement this.
+pub trait Numeric:
+    Num + NumCast + Copy + PartialOrd + Zero + One + std::fmt::Debug + Send + Sync + 'static
+{
+    /// Whether this type supports bitwise operations.
+    fn supports_bitwise() -> bool;
+
+    /// Whether this type is a floating-point type.
+    fn is_float() -> bool;
+}
+
+impl Numeric for f32 {
+    fn supports_bitwise() -> bool {
+        false
+    }
+    fn is_float() -> bool {
+        true
+    }
+}
+
+impl Numeric for f64 {
+    fn supports_bitwise() -> bool {
+        false
+    }
+    fn is_float() -> bool {
+        true
+    }
+}
+
+impl Numeric for i32 {
+    fn supports_bitwise() -> bool {
+        true
+    }
+    fn is_float() -> bool {
+        false
+    }
+}
+
+impl Numeric for i64 {
+    fn supports_bitwise() -> bool {
+        true
+    }
+    fn is_float() -> bool {
+        false
+    }
+}
+
+impl Numeric for u32 {
+    fn supports_bitwise() -> bool {
+        true
+    }
+    fn is_float() -> bool {
+        false
+    }
+}
+
+impl Numeric for u64 {
+    fn supports_bitwise() -> bool {
+        true
+    }
+    fn is_float() -> bool {
+        false
+    }
+}
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -163,6 +235,12 @@ pub enum Error {
         expected: usize,
         got: usize,
     },
+    /// Operation not supported for this numeric type.
+    UnsupportedOperation(String),
+    /// Literal cannot be converted to target type (e.g., 3.14 to i32).
+    InvalidLiteral(f64),
+    /// Negative exponent not allowed for integer types.
+    NegativeExponent,
 }
 
 impl std::fmt::Display for Error {
@@ -176,6 +254,15 @@ impl std::fmt::Display for Error {
                 got,
             } => {
                 write!(f, "function '{func}' expects {expected} args, got {got}")
+            }
+            Error::UnsupportedOperation(op) => {
+                write!(f, "operation '{op}' not supported for this numeric type")
+            }
+            Error::InvalidLiteral(n) => {
+                write!(f, "literal {n} cannot be converted to integer type")
+            }
+            Error::NegativeExponent => {
+                write!(f, "negative exponent not allowed for integer types")
             }
         }
     }
@@ -236,7 +323,9 @@ impl<T> FunctionRegistry<T> {
 // Evaluation
 // ============================================================================
 
-/// Evaluate an AST with scalar values.
+/// Evaluate an AST with scalar float values.
+///
+/// For integer types, use [`eval_int`].
 pub fn eval<T: Float>(
     ast: &Ast,
     vars: &HashMap<String, T>,
@@ -253,27 +342,33 @@ pub fn eval<T: Float>(
         Ast::BinOp(op, left, right) => {
             let l = eval(left, vars, funcs)?;
             let r = eval(right, vars, funcs)?;
-            Ok(match op {
-                BinOp::Add => l + r,
-                BinOp::Sub => l - r,
-                BinOp::Mul => l * r,
-                BinOp::Div => l / r,
-                BinOp::Pow => l.powf(r),
-            })
+            match op {
+                BinOp::Add => Ok(l + r),
+                BinOp::Sub => Ok(l - r),
+                BinOp::Mul => Ok(l * r),
+                BinOp::Div => Ok(l / r),
+                BinOp::Pow => Ok(l.powf(r)),
+                BinOp::Rem => Ok(l % r),
+                BinOp::BitAnd => Err(Error::UnsupportedOperation("&".into())),
+                BinOp::BitOr => Err(Error::UnsupportedOperation("|".into())),
+                BinOp::Shl => Err(Error::UnsupportedOperation("<<".into())),
+                BinOp::Shr => Err(Error::UnsupportedOperation(">>".into())),
+            }
         }
 
         Ast::UnaryOp(op, inner) => {
             let v = eval(inner, vars, funcs)?;
-            Ok(match op {
-                UnaryOp::Neg => -v,
+            match op {
+                UnaryOp::Neg => Ok(-v),
+                UnaryOp::BitNot => Err(Error::UnsupportedOperation("~".into())),
                 UnaryOp::Not => {
                     if v == T::zero() {
-                        T::one()
+                        Ok(T::one())
                     } else {
-                        T::zero()
+                        Ok(T::zero())
                     }
                 }
-            })
+            }
         }
 
         Ast::Compare(op, left, right) => {
@@ -335,6 +430,153 @@ pub fn eval<T: Float>(
             let arg_vals: Vec<T> = args
                 .iter()
                 .map(|a| eval(a, vars, funcs))
+                .collect::<Result<_, _>>()?;
+
+            Ok(func.call(&arg_vals))
+        }
+    }
+}
+
+/// Evaluate an AST with integer values.
+///
+/// Supports bitwise operations and errors on:
+/// - Fractional literals (e.g., 3.14)
+/// - Negative exponents
+/// - Float-only functions (sin, cos, etc.)
+pub fn eval_int<T: PrimInt + NumCast>(
+    ast: &Ast,
+    vars: &HashMap<String, T>,
+    funcs: &FunctionRegistry<T>,
+) -> Result<T, Error> {
+    match ast {
+        Ast::Num(n) => {
+            // Check if the literal is a whole number
+            if n.fract() != 0.0 {
+                return Err(Error::InvalidLiteral(*n));
+            }
+            T::from(*n).ok_or_else(|| Error::InvalidLiteral(*n))
+        }
+
+        Ast::Var(name) => vars
+            .get(name)
+            .copied()
+            .ok_or_else(|| Error::UnknownVariable(name.clone())),
+
+        Ast::BinOp(op, left, right) => {
+            let l = eval_int(left, vars, funcs)?;
+            let r = eval_int(right, vars, funcs)?;
+            match op {
+                BinOp::Add => Ok(l + r),
+                BinOp::Sub => Ok(l - r),
+                BinOp::Mul => Ok(l * r),
+                BinOp::Div => Ok(l / r),
+                BinOp::Rem => Ok(l % r),
+                BinOp::Pow => {
+                    // Check for negative exponent
+                    if r < T::zero() {
+                        return Err(Error::NegativeExponent);
+                    }
+                    // Integer power via repeated multiplication
+                    let mut result = T::one();
+                    let mut exp = r;
+                    let mut base = l;
+                    while exp > T::zero() {
+                        if exp & T::one() == T::one() {
+                            result = result * base;
+                        }
+                        base = base * base;
+                        exp = exp >> 1;
+                    }
+                    Ok(result)
+                }
+                BinOp::BitAnd => Ok(l & r),
+                BinOp::BitOr => Ok(l | r),
+                BinOp::Shl => {
+                    // Convert shift amount to usize
+                    let shift: u32 = r.to_u32().unwrap_or(0);
+                    Ok(l << shift as usize)
+                }
+                BinOp::Shr => {
+                    let shift: u32 = r.to_u32().unwrap_or(0);
+                    Ok(l >> shift as usize)
+                }
+            }
+        }
+
+        Ast::UnaryOp(op, inner) => {
+            let v = eval_int(inner, vars, funcs)?;
+            match op {
+                UnaryOp::Neg => Ok(T::zero() - v),
+                UnaryOp::BitNot => Ok(!v),
+                UnaryOp::Not => {
+                    if v == T::zero() {
+                        Ok(T::one())
+                    } else {
+                        Ok(T::zero())
+                    }
+                }
+            }
+        }
+
+        Ast::Compare(op, left, right) => {
+            let l = eval_int(left, vars, funcs)?;
+            let r = eval_int(right, vars, funcs)?;
+            let result = match op {
+                CompareOp::Lt => l < r,
+                CompareOp::Le => l <= r,
+                CompareOp::Gt => l > r,
+                CompareOp::Ge => l >= r,
+                CompareOp::Eq => l == r,
+                CompareOp::Ne => l != r,
+            };
+            Ok(if result { T::one() } else { T::zero() })
+        }
+
+        Ast::And(left, right) => {
+            let l = eval_int(left, vars, funcs)?;
+            if l == T::zero() {
+                Ok(T::zero())
+            } else {
+                let r = eval_int(right, vars, funcs)?;
+                Ok(if r != T::zero() { T::one() } else { T::zero() })
+            }
+        }
+
+        Ast::Or(left, right) => {
+            let l = eval_int(left, vars, funcs)?;
+            if l != T::zero() {
+                Ok(T::one())
+            } else {
+                let r = eval_int(right, vars, funcs)?;
+                Ok(if r != T::zero() { T::one() } else { T::zero() })
+            }
+        }
+
+        Ast::If(cond, then_expr, else_expr) => {
+            let c = eval_int(cond, vars, funcs)?;
+            if c != T::zero() {
+                eval_int(then_expr, vars, funcs)
+            } else {
+                eval_int(else_expr, vars, funcs)
+            }
+        }
+
+        Ast::Call(name, args) => {
+            let func = funcs
+                .get(name)
+                .ok_or_else(|| Error::UnknownFunction(name.clone()))?;
+
+            if args.len() != func.arg_count() {
+                return Err(Error::WrongArgCount {
+                    func: name.clone(),
+                    expected: func.arg_count(),
+                    got: args.len(),
+                });
+            }
+
+            let arg_vals: Vec<T> = args
+                .iter()
+                .map(|a| eval_int(a, vars, funcs))
                 .collect::<Result<_, _>>()?;
 
             Ok(func.call(&arg_vals))
@@ -899,6 +1141,109 @@ impl<T: Float> ScalarFn<T> for Remap {
 }
 
 // ============================================================================
+// Standard Functions - Integer-specific
+// ============================================================================
+
+/// Bitwise XOR: xor(a, b)
+pub struct Xor;
+impl<T: PrimInt> ScalarFn<T> for Xor {
+    fn name(&self) -> &str {
+        "xor"
+    }
+    fn arg_count(&self) -> usize {
+        2
+    }
+    fn call(&self, args: &[T]) -> T {
+        args[0] ^ args[1]
+    }
+}
+
+/// Integer abs: abs(x) for integer types
+pub struct AbsInt;
+impl<T: PrimInt> ScalarFn<T> for AbsInt {
+    fn name(&self) -> &str {
+        "abs"
+    }
+    fn arg_count(&self) -> usize {
+        1
+    }
+    fn call(&self, args: &[T]) -> T {
+        let x = args[0];
+        if x < T::zero() { T::zero() - x } else { x }
+    }
+}
+
+/// Integer min: min(a, b) for integer types
+pub struct MinInt;
+impl<T: PrimInt> ScalarFn<T> for MinInt {
+    fn name(&self) -> &str {
+        "min"
+    }
+    fn arg_count(&self) -> usize {
+        2
+    }
+    fn call(&self, args: &[T]) -> T {
+        if args[0] < args[1] { args[0] } else { args[1] }
+    }
+}
+
+/// Integer max: max(a, b) for integer types
+pub struct MaxInt;
+impl<T: PrimInt> ScalarFn<T> for MaxInt {
+    fn name(&self) -> &str {
+        "max"
+    }
+    fn arg_count(&self) -> usize {
+        2
+    }
+    fn call(&self, args: &[T]) -> T {
+        if args[0] > args[1] { args[0] } else { args[1] }
+    }
+}
+
+/// Integer clamp: clamp(x, lo, hi) for integer types
+pub struct ClampInt;
+impl<T: PrimInt> ScalarFn<T> for ClampInt {
+    fn name(&self) -> &str {
+        "clamp"
+    }
+    fn arg_count(&self) -> usize {
+        3
+    }
+    fn call(&self, args: &[T]) -> T {
+        let (x, lo, hi) = (args[0], args[1], args[2]);
+        if x < lo {
+            lo
+        } else if x > hi {
+            hi
+        } else {
+            x
+        }
+    }
+}
+
+/// Integer sign: sign(x) for integer types
+pub struct SignInt;
+impl<T: PrimInt> ScalarFn<T> for SignInt {
+    fn name(&self) -> &str {
+        "sign"
+    }
+    fn arg_count(&self) -> usize {
+        1
+    }
+    fn call(&self, args: &[T]) -> T {
+        let x = args[0];
+        if x > T::zero() {
+            T::one()
+        } else if x < T::zero() {
+            T::zero() - T::one()
+        } else {
+            T::zero()
+        }
+    }
+}
+
+// ============================================================================
 // Registry
 // ============================================================================
 
@@ -958,6 +1303,25 @@ pub fn register_scalar<T: Float + 'static>(registry: &mut FunctionRegistry<T>) {
 pub fn scalar_registry<T: Float + 'static>() -> FunctionRegistry<T> {
     let mut registry = FunctionRegistry::new();
     register_scalar(&mut registry);
+    registry
+}
+
+/// Registers standard integer functions into the given registry.
+///
+/// Includes: abs, min, max, clamp, sign, xor
+pub fn register_scalar_int<T: PrimInt + 'static>(registry: &mut FunctionRegistry<T>) {
+    registry.register(AbsInt);
+    registry.register(MinInt);
+    registry.register(MaxInt);
+    registry.register(ClampInt);
+    registry.register(SignInt);
+    registry.register(Xor);
+}
+
+/// Creates a new registry with standard integer functions.
+pub fn scalar_registry_int<T: PrimInt + 'static>() -> FunctionRegistry<T> {
+    let mut registry = FunctionRegistry::new();
+    register_scalar_int(&mut registry);
     registry
 }
 
@@ -1036,5 +1400,92 @@ mod tests {
         let vars: HashMap<String, f64> = [("x".to_string(), 0.0)].into();
         let result = eval(expr.ast(), &vars, &registry).unwrap();
         assert!((result - 1.0).abs() < 0.001);
+    }
+
+    // Integer expression tests
+    mod int_tests {
+        use super::*;
+
+        fn eval_int_expr(expr_str: &str, vars: &[(&str, i32)]) -> i32 {
+            let registry = scalar_registry_int();
+            let expr = Expr::parse(expr_str).unwrap();
+            let var_map: HashMap<String, i32> =
+                vars.iter().map(|(k, v)| (k.to_string(), *v)).collect();
+            eval_int(expr.ast(), &var_map, &registry).unwrap()
+        }
+
+        #[test]
+        fn test_int_arithmetic() {
+            assert_eq!(eval_int_expr("5 + 3", &[]), 8);
+            assert_eq!(eval_int_expr("10 - 4", &[]), 6);
+            assert_eq!(eval_int_expr("6 * 7", &[]), 42);
+            assert_eq!(eval_int_expr("15 / 4", &[]), 3); // Integer division
+        }
+
+        #[test]
+        fn test_int_modulo() {
+            assert_eq!(eval_int_expr("8 % 3", &[]), 2);
+            assert_eq!(eval_int_expr("10 % 5", &[]), 0);
+            assert_eq!(eval_int_expr("17 % 7", &[]), 3);
+        }
+
+        #[test]
+        fn test_int_power() {
+            assert_eq!(eval_int_expr("2 ^ 3", &[]), 8);
+            assert_eq!(eval_int_expr("3 ^ 4", &[]), 81);
+            assert_eq!(eval_int_expr("5 ^ 0", &[]), 1);
+        }
+
+        #[test]
+        fn test_int_bitwise() {
+            assert_eq!(eval_int_expr("5 & 3", &[]), 1); // 0101 & 0011 = 0001
+            assert_eq!(eval_int_expr("5 | 3", &[]), 7); // 0101 | 0011 = 0111
+            assert_eq!(eval_int_expr("xor(5, 3)", &[]), 6); // 0101 ^ 0011 = 0110
+            assert_eq!(eval_int_expr("1 << 4", &[]), 16);
+            assert_eq!(eval_int_expr("16 >> 2", &[]), 4);
+        }
+
+        #[test]
+        fn test_int_bitnot() {
+            // ~0 for i32 is -1
+            assert_eq!(eval_int_expr("~0", &[]), -1);
+        }
+
+        #[test]
+        fn test_int_functions() {
+            assert_eq!(eval_int_expr("abs(-5)", &[]), 5);
+            assert_eq!(eval_int_expr("min(3, 7)", &[]), 3);
+            assert_eq!(eval_int_expr("max(3, 7)", &[]), 7);
+            assert_eq!(eval_int_expr("clamp(5, 0, 3)", &[]), 3);
+            assert_eq!(eval_int_expr("sign(-10)", &[]), -1);
+            assert_eq!(eval_int_expr("sign(10)", &[]), 1);
+            assert_eq!(eval_int_expr("sign(0)", &[]), 0);
+        }
+
+        #[test]
+        fn test_int_with_variables() {
+            assert_eq!(eval_int_expr("x + y", &[("x", 5), ("y", 3)]), 8);
+            assert_eq!(
+                eval_int_expr("steps % beats", &[("steps", 8), ("beats", 3)]),
+                2
+            );
+        }
+
+        #[test]
+        fn test_int_fractional_literal_error() {
+            let registry: FunctionRegistry<i32> = scalar_registry_int();
+            let expr = Expr::parse("3.14 + 1").unwrap();
+            let result = eval_int(expr.ast(), &HashMap::new(), &registry);
+            assert!(matches!(result, Err(Error::InvalidLiteral(_))));
+        }
+
+        #[test]
+        fn test_int_negative_exponent_error() {
+            let registry: FunctionRegistry<i32> = scalar_registry_int();
+            let expr = Expr::parse("2 ^ -1").unwrap();
+            let vars: HashMap<String, i32> = HashMap::new();
+            let result = eval_int(expr.ast(), &vars, &registry);
+            assert!(matches!(result, Err(Error::NegativeExponent)));
+        }
     }
 }
