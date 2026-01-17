@@ -100,7 +100,7 @@ pub mod optimize;
 pub use funcs::Cross;
 pub use funcs::{
     Distance, Dot, Hadamard, Length, Lerp, Mix, Normalize, Reflect, linalg_registry,
-    register_linalg,
+    linalg_registry_int, register_linalg, register_linalg_numeric,
 };
 
 // ============================================================================

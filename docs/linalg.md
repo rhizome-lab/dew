@@ -150,14 +150,31 @@ let result = eval(expr.ast(), &vars, &registry).unwrap();
 
 ## Generic Numeric Types
 
-Works with f32 or f64:
+Works with floating-point (f32, f64) or integer (i32, i64) types:
 
 ```rust
-// f64 precision
+use rhizome_dew_linalg::{eval, linalg_registry, linalg_registry_int, Value};
+
+// f64 precision (full function set)
 let mut vars: HashMap<String, Value<f64>> = HashMap::new();
 vars.insert("v".to_string(), Value::Vec2([3.0, 4.0]));
 let result: Value<f64> = eval(expr.ast(), &vars, &linalg_registry()).unwrap();
+
+// Integer vectors (Numeric-only functions)
+let mut int_vars: HashMap<String, Value<i32>> = HashMap::new();
+int_vars.insert("a".to_string(), Value::Vec2([1, 2]));
+int_vars.insert("b".to_string(), Value::Vec2([3, 4]));
+let result: Value<i32> = eval(expr.ast(), &int_vars, &linalg_registry_int()).unwrap();
 ```
+
+### Integer-specific Notes
+
+- `linalg_registry_int()` provides functions that work with integers:
+  - `dot`, `cross`, `hadamard`, `lerp`, `mix`
+  - Constructors: `vec2`, `vec3`, `vec4`, `mat2`, `mat3`, `mat4`
+  - Extractors: `x`, `y`, `z`, `w`
+- Float-only functions (`length`, `normalize`, `distance`, `reflect`) are not available
+- Use case: integer grid coordinates, euclidean rhythms, pixel operations
 
 ## Backends
 

@@ -109,21 +109,36 @@ println!("Result: {}", result);
 | `*` | Multiplication |
 | `/` | Division |
 | `^` | Power |
+| `%` | Modulo (integers) |
+| `&` | Bitwise AND (integers) |
+| `\|` | Bitwise OR (integers) |
+| `<<` | Left shift (integers) |
+| `>>` | Right shift (integers) |
 | `-x` | Negation |
+| `~x` | Bitwise NOT (integers) |
 
 ## Generic Numeric Types
 
-Works with any `T: Float` from num-traits:
+Works with any `T: Numeric` (Float or Integer types):
 
 ```rust
-use rhizome_dew_scalar::{eval, scalar_registry};
+use rhizome_dew_scalar::{eval, scalar_registry, scalar_registry_int};
 
-// f32
+// Floating-point (f32/f64) - full function set
 let result_f32: f32 = eval::<f32>(expr.ast(), &vars_f32, &scalar_registry()).unwrap();
-
-// f64
 let result_f64: f64 = eval::<f64>(expr.ast(), &vars_f64, &scalar_registry()).unwrap();
+
+// Integer (i32/i64) - arithmetic + bitwise functions only
+let result_i32: i32 = eval::<i32>(expr.ast(), &vars_i32, &scalar_registry_int()).unwrap();
+let result_i64: i64 = eval::<i64>(expr.ast(), &vars_i64, &scalar_registry_int()).unwrap();
 ```
+
+### Integer-specific Notes
+
+- Trig functions (sin, cos, etc.) are not available for integers
+- Power with negative exponent returns an error for integers
+- Fractional literals (like `3.14`) error when evaluating as integers
+- Use `scalar_registry_int()` for integer-only function set
 
 ## Backends
 

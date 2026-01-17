@@ -153,7 +153,7 @@ pub fn emit_lua(ast: &Ast, var_types: &HashMap<String, Type>) -> Result<LuaExpr,
     }
 }
 
-fn format_float(n: f32) -> String {
+fn format_float(n: f64) -> String {
     if n.fract() == 0.0 && n.abs() < 1e10 {
         format!("{:.1}", n)
     } else {
@@ -170,6 +170,27 @@ fn emit_binop(op: BinOp, left: LuaExpr, right: LuaExpr) -> Result<LuaExpr, LuaEr
         BinOp::Mul => emit_mul(left, right, result_type),
         BinOp::Div => emit_div(left, right, result_type),
         BinOp::Pow => emit_pow(left, right),
+        // Bitwise and modulo ops (Lua 5.3+ has native bitwise operators)
+        BinOp::Rem => Ok(LuaExpr {
+            code: format!("({} % {})", left.code, right.code),
+            typ: Type::Scalar,
+        }),
+        BinOp::BitAnd => Ok(LuaExpr {
+            code: format!("({} & {})", left.code, right.code),
+            typ: Type::Scalar,
+        }),
+        BinOp::BitOr => Ok(LuaExpr {
+            code: format!("({} | {})", left.code, right.code),
+            typ: Type::Scalar,
+        }),
+        BinOp::Shl => Ok(LuaExpr {
+            code: format!("({} << {})", left.code, right.code),
+            typ: Type::Scalar,
+        }),
+        BinOp::Shr => Ok(LuaExpr {
+            code: format!("({} >> {})", left.code, right.code),
+            typ: Type::Scalar,
+        }),
     }
 }
 
@@ -692,6 +713,26 @@ fn infer_binop_type(op: BinOp, left: Type, right: Type) -> Result<Type, LuaError
                 })
             }
         }
+        // Bitwise and modulo ops: scalar only
+        BinOp::Rem | BinOp::BitAnd | BinOp::BitOr | BinOp::Shl | BinOp::Shr => {
+            if left == Type::Scalar && right == Type::Scalar {
+                Ok(Type::Scalar)
+            } else {
+                let op_str = match op {
+                    BinOp::Rem => "%",
+                    BinOp::BitAnd => "&",
+                    BinOp::BitOr => "|",
+                    BinOp::Shl => "<<",
+                    BinOp::Shr => ">>",
+                    _ => unreachable!(),
+                };
+                Err(LuaError::TypeMismatch {
+                    op: op_str,
+                    left,
+                    right,
+                })
+            }
+        }
     }
 }
 
@@ -784,6 +825,16 @@ fn emit_unaryop(op: UnaryOp, inner: LuaExpr) -> Result<LuaExpr, LuaError> {
             let bool_expr = cond::scalar_to_bool(&inner.code);
             Ok(LuaExpr {
                 code: cond::bool_to_scalar(&cond::emit_not(&bool_expr)),
+                typ: Type::Scalar,
+            })
+        }
+        UnaryOp::BitNot => {
+            if inner.typ != Type::Scalar {
+                return Err(LuaError::UnsupportedType(inner.typ));
+            }
+            // Lua 5.3+ uses ~ for bitwise NOT
+            Ok(LuaExpr {
+                code: format!("(~{})", inner.code),
                 typ: Type::Scalar,
             })
         }

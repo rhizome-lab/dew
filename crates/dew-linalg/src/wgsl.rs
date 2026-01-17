@@ -40,7 +40,45 @@ impl std::fmt::Display for WgslError {
 
 impl std::error::Error for WgslError {}
 
-/// Convert a Type to its WGSL representation.
+/// Numeric type for code generation (scalar element type).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum NumericType {
+    #[default]
+    F32,
+    I32,
+    U32,
+}
+
+impl NumericType {
+    /// WGSL scalar type name.
+    pub fn wgsl_scalar(&self) -> &'static str {
+        match self {
+            NumericType::F32 => "f32",
+            NumericType::I32 => "i32",
+            NumericType::U32 => "u32",
+        }
+    }
+}
+
+/// Convert a Type to its WGSL representation with the given numeric type.
+pub fn type_to_wgsl_with(t: Type, numeric: NumericType) -> String {
+    let scalar = numeric.wgsl_scalar();
+    match t {
+        Type::Scalar => scalar.to_string(),
+        Type::Vec2 => format!("vec2<{scalar}>"),
+        #[cfg(feature = "3d")]
+        Type::Vec3 => format!("vec3<{scalar}>"),
+        #[cfg(feature = "4d")]
+        Type::Vec4 => format!("vec4<{scalar}>"),
+        Type::Mat2 => format!("mat2x2<{scalar}>"),
+        #[cfg(feature = "3d")]
+        Type::Mat3 => format!("mat3x3<{scalar}>"),
+        #[cfg(feature = "4d")]
+        Type::Mat4 => format!("mat4x4<{scalar}>"),
+    }
+}
+
+/// Convert a Type to its WGSL representation (defaults to f32).
 pub fn type_to_wgsl(t: Type) -> &'static str {
     match t {
         Type::Scalar => "f32",
@@ -63,11 +101,29 @@ pub struct WgslExpr {
     pub typ: Type,
 }
 
-/// Emit WGSL code for an AST with type propagation.
+/// Format a numeric literal for WGSL.
+fn format_literal(n: f64, numeric: NumericType) -> String {
+    match numeric {
+        NumericType::F32 => format!("{n:.10}"),
+        NumericType::I32 => format!("{}", n as i32),
+        NumericType::U32 => format!("{}u", n as u32),
+    }
+}
+
+/// Emit WGSL code for an AST with type propagation (defaults to f32).
 pub fn emit_wgsl(ast: &Ast, var_types: &HashMap<String, Type>) -> Result<WgslExpr, WgslError> {
+    emit_wgsl_with(ast, var_types, NumericType::F32)
+}
+
+/// Emit WGSL code for an AST with specified numeric type.
+pub fn emit_wgsl_with(
+    ast: &Ast,
+    var_types: &HashMap<String, Type>,
+    numeric: NumericType,
+) -> Result<WgslExpr, WgslError> {
     match ast {
         Ast::Num(n) => Ok(WgslExpr {
-            code: format!("{n:.10}"),
+            code: format_literal(*n, numeric),
             typ: Type::Scalar,
         }),
 
@@ -83,27 +139,27 @@ pub fn emit_wgsl(ast: &Ast, var_types: &HashMap<String, Type>) -> Result<WgslExp
         }
 
         Ast::BinOp(op, left, right) => {
-            let left_expr = emit_wgsl(left, var_types)?;
-            let right_expr = emit_wgsl(right, var_types)?;
-            emit_binop(*op, left_expr, right_expr)
+            let left_expr = emit_wgsl_with(left, var_types, numeric)?;
+            let right_expr = emit_wgsl_with(right, var_types, numeric)?;
+            emit_binop(*op, left_expr, right_expr, numeric)
         }
 
         Ast::UnaryOp(op, inner) => {
-            let inner_expr = emit_wgsl(inner, var_types)?;
+            let inner_expr = emit_wgsl_with(inner, var_types, numeric)?;
             emit_unaryop(*op, inner_expr)
         }
 
         Ast::Call(name, args) => {
             let arg_exprs: Vec<WgslExpr> = args
                 .iter()
-                .map(|a| emit_wgsl(a, var_types))
+                .map(|a| emit_wgsl_with(a, var_types, numeric))
                 .collect::<Result<_, _>>()?;
-            emit_function_call(name, arg_exprs)
+            emit_function_call(name, arg_exprs, numeric)
         }
 
         Ast::Compare(op, left, right) => {
-            let left_expr = emit_wgsl(left, var_types)?;
-            let right_expr = emit_wgsl(right, var_types)?;
+            let left_expr = emit_wgsl_with(left, var_types, numeric)?;
+            let right_expr = emit_wgsl_with(right, var_types, numeric)?;
             if left_expr.typ != Type::Scalar || right_expr.typ != Type::Scalar {
                 return Err(WgslError::UnsupportedTypeForConditional(left_expr.typ));
             }
@@ -115,8 +171,8 @@ pub fn emit_wgsl(ast: &Ast, var_types: &HashMap<String, Type>) -> Result<WgslExp
         }
 
         Ast::And(left, right) => {
-            let left_expr = emit_wgsl(left, var_types)?;
-            let right_expr = emit_wgsl(right, var_types)?;
+            let left_expr = emit_wgsl_with(left, var_types, numeric)?;
+            let right_expr = emit_wgsl_with(right, var_types, numeric)?;
             if left_expr.typ != Type::Scalar || right_expr.typ != Type::Scalar {
                 return Err(WgslError::UnsupportedTypeForConditional(left_expr.typ));
             }
@@ -130,8 +186,8 @@ pub fn emit_wgsl(ast: &Ast, var_types: &HashMap<String, Type>) -> Result<WgslExp
         }
 
         Ast::Or(left, right) => {
-            let left_expr = emit_wgsl(left, var_types)?;
-            let right_expr = emit_wgsl(right, var_types)?;
+            let left_expr = emit_wgsl_with(left, var_types, numeric)?;
+            let right_expr = emit_wgsl_with(right, var_types, numeric)?;
             if left_expr.typ != Type::Scalar || right_expr.typ != Type::Scalar {
                 return Err(WgslError::UnsupportedTypeForConditional(left_expr.typ));
             }
@@ -145,9 +201,9 @@ pub fn emit_wgsl(ast: &Ast, var_types: &HashMap<String, Type>) -> Result<WgslExp
         }
 
         Ast::If(cond_ast, then_ast, else_ast) => {
-            let cond_expr = emit_wgsl(cond_ast, var_types)?;
-            let then_expr = emit_wgsl(then_ast, var_types)?;
-            let else_expr = emit_wgsl(else_ast, var_types)?;
+            let cond_expr = emit_wgsl_with(cond_ast, var_types, numeric)?;
+            let then_expr = emit_wgsl_with(then_ast, var_types, numeric)?;
+            let else_expr = emit_wgsl_with(else_ast, var_types, numeric)?;
             if cond_expr.typ != Type::Scalar {
                 return Err(WgslError::UnsupportedTypeForConditional(cond_expr.typ));
             }
@@ -167,13 +223,23 @@ pub fn emit_wgsl(ast: &Ast, var_types: &HashMap<String, Type>) -> Result<WgslExp
     }
 }
 
-fn emit_binop(op: BinOp, left: WgslExpr, right: WgslExpr) -> Result<WgslExpr, WgslError> {
+fn emit_binop(
+    op: BinOp,
+    left: WgslExpr,
+    right: WgslExpr,
+    numeric: NumericType,
+) -> Result<WgslExpr, WgslError> {
     let op_str = match op {
         BinOp::Add => "+",
         BinOp::Sub => "-",
         BinOp::Mul => "*",
         BinOp::Div => "/",
-        BinOp::Pow => return emit_pow(left, right),
+        BinOp::Pow => return emit_pow(left, right, numeric),
+        BinOp::Rem => "%",
+        BinOp::BitAnd => "&",
+        BinOp::BitOr => "|",
+        BinOp::Shl => "<<",
+        BinOp::Shr => ">>",
     };
 
     let result_type = infer_binop_type(op, left.typ, right.typ)?;
@@ -184,7 +250,7 @@ fn emit_binop(op: BinOp, left: WgslExpr, right: WgslExpr) -> Result<WgslExpr, Wg
     })
 }
 
-fn emit_pow(base: WgslExpr, exp: WgslExpr) -> Result<WgslExpr, WgslError> {
+fn emit_pow(base: WgslExpr, exp: WgslExpr, numeric: NumericType) -> Result<WgslExpr, WgslError> {
     // WGSL pow() only works on scalars
     if base.typ != Type::Scalar || exp.typ != Type::Scalar {
         return Err(WgslError::TypeMismatch {
@@ -193,8 +259,15 @@ fn emit_pow(base: WgslExpr, exp: WgslExpr) -> Result<WgslExpr, WgslError> {
             right: exp.typ,
         });
     }
+    // For floats, use native pow(). For integers, WGSL doesn't have native
+    // integer pow, so we cast through f32 (precision loss for large values).
+    let code = match numeric {
+        NumericType::F32 => format!("pow({}, {})", base.code, exp.code),
+        NumericType::I32 => format!("i32(pow(f32({}), f32({})))", base.code, exp.code),
+        NumericType::U32 => format!("u32(pow(f32({}), f32({})))", base.code, exp.code),
+    };
     Ok(WgslExpr {
-        code: format!("pow({}, {})", base.code, exp.code),
+        code,
         typ: Type::Scalar,
     })
 }
@@ -236,6 +309,26 @@ fn infer_binop_type(op: BinOp, left: Type, right: Type) -> Result<Type, WgslErro
             } else {
                 Err(WgslError::TypeMismatch {
                     op: "^",
+                    left,
+                    right,
+                })
+            }
+        }
+        // Bitwise and modulo ops: scalar only
+        BinOp::Rem | BinOp::BitAnd | BinOp::BitOr | BinOp::Shl | BinOp::Shr => {
+            if left == Type::Scalar && right == Type::Scalar {
+                Ok(Type::Scalar)
+            } else {
+                let op_str = match op {
+                    BinOp::Rem => "%",
+                    BinOp::BitAnd => "&",
+                    BinOp::BitOr => "|",
+                    BinOp::Shl => "<<",
+                    BinOp::Shr => ">>",
+                    _ => unreachable!(),
+                };
+                Err(WgslError::TypeMismatch {
+                    op: op_str,
                     left,
                     right,
                 })
@@ -308,10 +401,24 @@ fn emit_unaryop(op: UnaryOp, inner: WgslExpr) -> Result<WgslExpr, WgslError> {
                 typ: Type::Scalar,
             })
         }
+        UnaryOp::BitNot => {
+            if inner.typ != Type::Scalar {
+                return Err(WgslError::UnsupportedType(inner.typ));
+            }
+            Ok(WgslExpr {
+                code: format!("(~{})", inner.code),
+                typ: Type::Scalar,
+            })
+        }
     }
 }
 
-fn emit_function_call(name: &str, args: Vec<WgslExpr>) -> Result<WgslExpr, WgslError> {
+fn emit_function_call(
+    name: &str,
+    args: Vec<WgslExpr>,
+    numeric: NumericType,
+) -> Result<WgslExpr, WgslError> {
+    let scalar = numeric.wgsl_scalar();
     match name {
         // Vector functions that map directly to WGSL builtins
         "dot" => {
@@ -404,7 +511,7 @@ fn emit_function_call(name: &str, args: Vec<WgslExpr>) -> Result<WgslExpr, WgslE
                 return Err(WgslError::UnknownFunction(name.to_string()));
             }
             Ok(WgslExpr {
-                code: format!("vec2<f32>({}, {})", args[0].code, args[1].code),
+                code: format!("vec2<{scalar}>({}, {})", args[0].code, args[1].code),
                 typ: Type::Vec2,
             })
         }
@@ -416,7 +523,7 @@ fn emit_function_call(name: &str, args: Vec<WgslExpr>) -> Result<WgslExpr, WgslE
             }
             Ok(WgslExpr {
                 code: format!(
-                    "vec3<f32>({}, {}, {})",
+                    "vec3<{scalar}>({}, {}, {})",
                     args[0].code, args[1].code, args[2].code
                 ),
                 typ: Type::Vec3,
@@ -430,7 +537,7 @@ fn emit_function_call(name: &str, args: Vec<WgslExpr>) -> Result<WgslExpr, WgslE
             }
             Ok(WgslExpr {
                 code: format!(
-                    "vec4<f32>({}, {}, {}, {})",
+                    "vec4<{scalar}>({}, {}, {}, {})",
                     args[0].code, args[1].code, args[2].code, args[3].code
                 ),
                 typ: Type::Vec4,
@@ -619,7 +726,7 @@ fn emit_function_call(name: &str, args: Vec<WgslExpr>) -> Result<WgslExpr, WgslE
             let angle = &args[1].code;
             Ok(WgslExpr {
                 code: format!(
-                    "vec2<f32>({v}.x*cos({angle}) - {v}.y*sin({angle}), {v}.x*sin({angle}) + {v}.y*cos({angle}))"
+                    "vec2<{scalar}>({v}.x*cos({angle}) - {v}.y*sin({angle}), {v}.x*sin({angle}) + {v}.y*cos({angle}))"
                 ),
                 typ: Type::Vec2,
             })
@@ -634,7 +741,7 @@ fn emit_function_call(name: &str, args: Vec<WgslExpr>) -> Result<WgslExpr, WgslE
             let angle = &args[1].code;
             Ok(WgslExpr {
                 code: format!(
-                    "vec3<f32>({v}.x, {v}.y*cos({angle}) - {v}.z*sin({angle}), {v}.y*sin({angle}) + {v}.z*cos({angle}))"
+                    "vec3<{scalar}>({v}.x, {v}.y*cos({angle}) - {v}.z*sin({angle}), {v}.y*sin({angle}) + {v}.z*cos({angle}))"
                 ),
                 typ: Type::Vec3,
             })
@@ -649,7 +756,7 @@ fn emit_function_call(name: &str, args: Vec<WgslExpr>) -> Result<WgslExpr, WgslE
             let angle = &args[1].code;
             Ok(WgslExpr {
                 code: format!(
-                    "vec3<f32>({v}.x*cos({angle}) + {v}.z*sin({angle}), {v}.y, -{v}.x*sin({angle}) + {v}.z*cos({angle}))"
+                    "vec3<{scalar}>({v}.x*cos({angle}) + {v}.z*sin({angle}), {v}.y, -{v}.x*sin({angle}) + {v}.z*cos({angle}))"
                 ),
                 typ: Type::Vec3,
             })
@@ -664,7 +771,7 @@ fn emit_function_call(name: &str, args: Vec<WgslExpr>) -> Result<WgslExpr, WgslE
             let angle = &args[1].code;
             Ok(WgslExpr {
                 code: format!(
-                    "vec3<f32>({v}.x*cos({angle}) - {v}.y*sin({angle}), {v}.x*sin({angle}) + {v}.y*cos({angle}), {v}.z)"
+                    "vec3<{scalar}>({v}.x*cos({angle}) - {v}.y*sin({angle}), {v}.x*sin({angle}) + {v}.y*cos({angle}), {v}.z)"
                 ),
                 typ: Type::Vec3,
             })
@@ -697,7 +804,7 @@ fn emit_function_call(name: &str, args: Vec<WgslExpr>) -> Result<WgslExpr, WgslE
             }
             Ok(WgslExpr {
                 code: format!(
-                    "mat2x2<f32>({}, {}, {}, {})",
+                    "mat2x2<{scalar}>({}, {}, {}, {})",
                     args[0].code, args[1].code, args[2].code, args[3].code
                 ),
                 typ: Type::Mat2,
@@ -711,7 +818,7 @@ fn emit_function_call(name: &str, args: Vec<WgslExpr>) -> Result<WgslExpr, WgslE
             }
             Ok(WgslExpr {
                 code: format!(
-                    "mat3x3<f32>({}, {}, {}, {}, {}, {}, {}, {}, {})",
+                    "mat3x3<{scalar}>({}, {}, {}, {}, {}, {}, {}, {}, {})",
                     args[0].code,
                     args[1].code,
                     args[2].code,
@@ -733,7 +840,7 @@ fn emit_function_call(name: &str, args: Vec<WgslExpr>) -> Result<WgslExpr, WgslE
             }
             Ok(WgslExpr {
                 code: format!(
-                    "mat4x4<f32>({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})",
+                    "mat4x4<{scalar}>({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})",
                     args[0].code,
                     args[1].code,
                     args[2].code,
@@ -837,5 +944,56 @@ mod tests {
     fn test_type_mismatch() {
         let result = emit("a + b", &[("a", Type::Scalar), ("b", Type::Vec2)]);
         assert!(matches!(result, Err(WgslError::TypeMismatch { .. })));
+    }
+
+    // Integer emission tests
+    fn emit_int(expr: &str, var_types: &[(&str, Type)]) -> Result<WgslExpr, WgslError> {
+        let expr = Expr::parse(expr).unwrap();
+        let types: HashMap<String, Type> =
+            var_types.iter().map(|(k, v)| (k.to_string(), *v)).collect();
+        emit_wgsl_with(expr.ast(), &types, NumericType::I32)
+    }
+
+    #[test]
+    fn test_i32_literal() {
+        let result = emit_int("42", &[]).unwrap();
+        assert_eq!(result.code, "42");
+        assert_eq!(result.typ, Type::Scalar);
+    }
+
+    #[test]
+    fn test_i32_vec2_constructor() {
+        let result = emit_int("vec2(1, 2)", &[]).unwrap();
+        assert!(result.code.contains("vec2<i32>"));
+        assert_eq!(result.typ, Type::Vec2);
+    }
+
+    #[test]
+    fn test_i32_modulo() {
+        let result = emit_int("a % b", &[("a", Type::Scalar), ("b", Type::Scalar)]).unwrap();
+        assert!(result.code.contains("%"));
+        assert_eq!(result.typ, Type::Scalar);
+    }
+
+    #[test]
+    fn test_i32_bitwise() {
+        let and = emit_int("a & b", &[("a", Type::Scalar), ("b", Type::Scalar)]).unwrap();
+        assert!(and.code.contains("&"));
+
+        let or = emit_int("a | b", &[("a", Type::Scalar), ("b", Type::Scalar)]).unwrap();
+        assert!(or.code.contains("|"));
+
+        let shl = emit_int("a << b", &[("a", Type::Scalar), ("b", Type::Scalar)]).unwrap();
+        assert!(shl.code.contains("<<"));
+
+        let shr = emit_int("a >> b", &[("a", Type::Scalar), ("b", Type::Scalar)]).unwrap();
+        assert!(shr.code.contains(">>"));
+    }
+
+    #[test]
+    fn test_i32_pow() {
+        let result = emit_int("a ^ b", &[("a", Type::Scalar), ("b", Type::Scalar)]).unwrap();
+        // Integer pow casts through f32
+        assert!(result.code.contains("i32(pow(f32("));
     }
 }

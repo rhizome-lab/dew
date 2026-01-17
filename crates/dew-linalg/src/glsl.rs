@@ -40,21 +40,58 @@ impl std::fmt::Display for GlslError {
 
 impl std::error::Error for GlslError {}
 
-/// Convert a Type to its GLSL representation.
-pub fn type_to_glsl(t: Type) -> &'static str {
-    match t {
-        Type::Scalar => "float",
-        Type::Vec2 => "vec2",
-        #[cfg(feature = "3d")]
-        Type::Vec3 => "vec3",
-        #[cfg(feature = "4d")]
-        Type::Vec4 => "vec4",
-        Type::Mat2 => "mat2",
-        #[cfg(feature = "3d")]
-        Type::Mat3 => "mat3",
-        #[cfg(feature = "4d")]
-        Type::Mat4 => "mat4",
+/// Numeric type for code generation (scalar element type).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum NumericType {
+    #[default]
+    Float,
+    Int,
+    Uint,
+}
+
+impl NumericType {
+    /// GLSL scalar type name.
+    pub fn glsl_scalar(&self) -> &'static str {
+        match self {
+            NumericType::Float => "float",
+            NumericType::Int => "int",
+            NumericType::Uint => "uint",
+        }
     }
+}
+
+/// Convert a Type to its GLSL representation with the given numeric type.
+pub fn type_to_glsl_with(t: Type, numeric: NumericType) -> &'static str {
+    match (t, numeric) {
+        (Type::Scalar, NumericType::Float) => "float",
+        (Type::Scalar, NumericType::Int) => "int",
+        (Type::Scalar, NumericType::Uint) => "uint",
+        (Type::Vec2, NumericType::Float) => "vec2",
+        (Type::Vec2, NumericType::Int) => "ivec2",
+        (Type::Vec2, NumericType::Uint) => "uvec2",
+        #[cfg(feature = "3d")]
+        (Type::Vec3, NumericType::Float) => "vec3",
+        #[cfg(feature = "3d")]
+        (Type::Vec3, NumericType::Int) => "ivec3",
+        #[cfg(feature = "3d")]
+        (Type::Vec3, NumericType::Uint) => "uvec3",
+        #[cfg(feature = "4d")]
+        (Type::Vec4, NumericType::Float) => "vec4",
+        #[cfg(feature = "4d")]
+        (Type::Vec4, NumericType::Int) => "ivec4",
+        #[cfg(feature = "4d")]
+        (Type::Vec4, NumericType::Uint) => "uvec4",
+        (Type::Mat2, _) => "mat2", // Matrices are always float in GLSL
+        #[cfg(feature = "3d")]
+        (Type::Mat3, _) => "mat3",
+        #[cfg(feature = "4d")]
+        (Type::Mat4, _) => "mat4",
+    }
+}
+
+/// Convert a Type to its GLSL representation (defaults to float).
+pub fn type_to_glsl(t: Type) -> &'static str {
+    type_to_glsl_with(t, NumericType::Float)
 }
 
 /// Result of GLSL emission: code string and its type.
@@ -63,11 +100,29 @@ pub struct GlslExpr {
     pub typ: Type,
 }
 
-/// Emit GLSL code for an AST with type propagation.
+/// Format a numeric literal for GLSL.
+fn format_literal(n: f64, numeric: NumericType) -> String {
+    match numeric {
+        NumericType::Float => format!("{n:.10}"),
+        NumericType::Int => format!("{}", n as i32),
+        NumericType::Uint => format!("{}u", n as u32),
+    }
+}
+
+/// Emit GLSL code for an AST with type propagation (defaults to float).
 pub fn emit_glsl(ast: &Ast, var_types: &HashMap<String, Type>) -> Result<GlslExpr, GlslError> {
+    emit_glsl_with(ast, var_types, NumericType::Float)
+}
+
+/// Emit GLSL code for an AST with specified numeric type.
+pub fn emit_glsl_with(
+    ast: &Ast,
+    var_types: &HashMap<String, Type>,
+    numeric: NumericType,
+) -> Result<GlslExpr, GlslError> {
     match ast {
         Ast::Num(n) => Ok(GlslExpr {
-            code: format!("{n:.10}"),
+            code: format_literal(*n, numeric),
             typ: Type::Scalar,
         }),
 
@@ -83,27 +138,27 @@ pub fn emit_glsl(ast: &Ast, var_types: &HashMap<String, Type>) -> Result<GlslExp
         }
 
         Ast::BinOp(op, left, right) => {
-            let left_expr = emit_glsl(left, var_types)?;
-            let right_expr = emit_glsl(right, var_types)?;
-            emit_binop(*op, left_expr, right_expr)
+            let left_expr = emit_glsl_with(left, var_types, numeric)?;
+            let right_expr = emit_glsl_with(right, var_types, numeric)?;
+            emit_binop(*op, left_expr, right_expr, numeric)
         }
 
         Ast::UnaryOp(op, inner) => {
-            let inner_expr = emit_glsl(inner, var_types)?;
+            let inner_expr = emit_glsl_with(inner, var_types, numeric)?;
             emit_unaryop(*op, inner_expr)
         }
 
         Ast::Call(name, args) => {
             let arg_exprs: Vec<GlslExpr> = args
                 .iter()
-                .map(|a| emit_glsl(a, var_types))
+                .map(|a| emit_glsl_with(a, var_types, numeric))
                 .collect::<Result<_, _>>()?;
-            emit_function_call(name, arg_exprs)
+            emit_function_call(name, arg_exprs, numeric)
         }
 
         Ast::Compare(op, left, right) => {
-            let left_expr = emit_glsl(left, var_types)?;
-            let right_expr = emit_glsl(right, var_types)?;
+            let left_expr = emit_glsl_with(left, var_types, numeric)?;
+            let right_expr = emit_glsl_with(right, var_types, numeric)?;
             if left_expr.typ != Type::Scalar || right_expr.typ != Type::Scalar {
                 return Err(GlslError::UnsupportedTypeForConditional(left_expr.typ));
             }
@@ -115,8 +170,8 @@ pub fn emit_glsl(ast: &Ast, var_types: &HashMap<String, Type>) -> Result<GlslExp
         }
 
         Ast::And(left, right) => {
-            let left_expr = emit_glsl(left, var_types)?;
-            let right_expr = emit_glsl(right, var_types)?;
+            let left_expr = emit_glsl_with(left, var_types, numeric)?;
+            let right_expr = emit_glsl_with(right, var_types, numeric)?;
             if left_expr.typ != Type::Scalar || right_expr.typ != Type::Scalar {
                 return Err(GlslError::UnsupportedTypeForConditional(left_expr.typ));
             }
@@ -130,8 +185,8 @@ pub fn emit_glsl(ast: &Ast, var_types: &HashMap<String, Type>) -> Result<GlslExp
         }
 
         Ast::Or(left, right) => {
-            let left_expr = emit_glsl(left, var_types)?;
-            let right_expr = emit_glsl(right, var_types)?;
+            let left_expr = emit_glsl_with(left, var_types, numeric)?;
+            let right_expr = emit_glsl_with(right, var_types, numeric)?;
             if left_expr.typ != Type::Scalar || right_expr.typ != Type::Scalar {
                 return Err(GlslError::UnsupportedTypeForConditional(left_expr.typ));
             }
@@ -145,9 +200,9 @@ pub fn emit_glsl(ast: &Ast, var_types: &HashMap<String, Type>) -> Result<GlslExp
         }
 
         Ast::If(cond_ast, then_ast, else_ast) => {
-            let cond_expr = emit_glsl(cond_ast, var_types)?;
-            let then_expr = emit_glsl(then_ast, var_types)?;
-            let else_expr = emit_glsl(else_ast, var_types)?;
+            let cond_expr = emit_glsl_with(cond_ast, var_types, numeric)?;
+            let then_expr = emit_glsl_with(then_ast, var_types, numeric)?;
+            let else_expr = emit_glsl_with(else_ast, var_types, numeric)?;
             if cond_expr.typ != Type::Scalar {
                 return Err(GlslError::UnsupportedTypeForConditional(cond_expr.typ));
             }
@@ -167,13 +222,23 @@ pub fn emit_glsl(ast: &Ast, var_types: &HashMap<String, Type>) -> Result<GlslExp
     }
 }
 
-fn emit_binop(op: BinOp, left: GlslExpr, right: GlslExpr) -> Result<GlslExpr, GlslError> {
+fn emit_binop(
+    op: BinOp,
+    left: GlslExpr,
+    right: GlslExpr,
+    numeric: NumericType,
+) -> Result<GlslExpr, GlslError> {
     let op_str = match op {
         BinOp::Add => "+",
         BinOp::Sub => "-",
         BinOp::Mul => "*",
         BinOp::Div => "/",
-        BinOp::Pow => return emit_pow(left, right),
+        BinOp::Pow => return emit_pow(left, right, numeric),
+        BinOp::Rem => "%",
+        BinOp::BitAnd => "&",
+        BinOp::BitOr => "|",
+        BinOp::Shl => "<<",
+        BinOp::Shr => ">>",
     };
 
     let result_type = infer_binop_type(op, left.typ, right.typ)?;
@@ -184,7 +249,7 @@ fn emit_binop(op: BinOp, left: GlslExpr, right: GlslExpr) -> Result<GlslExpr, Gl
     })
 }
 
-fn emit_pow(base: GlslExpr, exp: GlslExpr) -> Result<GlslExpr, GlslError> {
+fn emit_pow(base: GlslExpr, exp: GlslExpr, numeric: NumericType) -> Result<GlslExpr, GlslError> {
     // GLSL pow() only works on scalars
     if base.typ != Type::Scalar || exp.typ != Type::Scalar {
         return Err(GlslError::TypeMismatch {
@@ -193,8 +258,15 @@ fn emit_pow(base: GlslExpr, exp: GlslExpr) -> Result<GlslExpr, GlslError> {
             right: exp.typ,
         });
     }
+    // For floats, use native pow(). For integers, GLSL doesn't have native
+    // integer pow, so we cast through float (precision loss for large values).
+    let code = match numeric {
+        NumericType::Float => format!("pow({}, {})", base.code, exp.code),
+        NumericType::Int => format!("int(pow(float({}), float({})))", base.code, exp.code),
+        NumericType::Uint => format!("uint(pow(float({}), float({})))", base.code, exp.code),
+    };
     Ok(GlslExpr {
-        code: format!("pow({}, {})", base.code, exp.code),
+        code,
         typ: Type::Scalar,
     })
 }
@@ -236,6 +308,26 @@ fn infer_binop_type(op: BinOp, left: Type, right: Type) -> Result<Type, GlslErro
             } else {
                 Err(GlslError::TypeMismatch {
                     op: "^",
+                    left,
+                    right,
+                })
+            }
+        }
+        // Bitwise and modulo ops: scalar only
+        BinOp::Rem | BinOp::BitAnd | BinOp::BitOr | BinOp::Shl | BinOp::Shr => {
+            if left == Type::Scalar && right == Type::Scalar {
+                Ok(Type::Scalar)
+            } else {
+                let op_str = match op {
+                    BinOp::Rem => "%",
+                    BinOp::BitAnd => "&",
+                    BinOp::BitOr => "|",
+                    BinOp::Shl => "<<",
+                    BinOp::Shr => ">>",
+                    _ => unreachable!(),
+                };
+                Err(GlslError::TypeMismatch {
+                    op: op_str,
                     left,
                     right,
                 })
@@ -308,10 +400,29 @@ fn emit_unaryop(op: UnaryOp, inner: GlslExpr) -> Result<GlslExpr, GlslError> {
                 typ: Type::Scalar,
             })
         }
+        UnaryOp::BitNot => {
+            if inner.typ != Type::Scalar {
+                return Err(GlslError::UnsupportedType(inner.typ));
+            }
+            Ok(GlslExpr {
+                code: format!("(~{})", inner.code),
+                typ: Type::Scalar,
+            })
+        }
     }
 }
 
-fn emit_function_call(name: &str, args: Vec<GlslExpr>) -> Result<GlslExpr, GlslError> {
+fn emit_function_call(
+    name: &str,
+    args: Vec<GlslExpr>,
+    numeric: NumericType,
+) -> Result<GlslExpr, GlslError> {
+    let vec2_type = type_to_glsl_with(Type::Vec2, numeric);
+    #[cfg(feature = "3d")]
+    let vec3_type = type_to_glsl_with(Type::Vec3, numeric);
+    #[cfg(feature = "4d")]
+    let vec4_type = type_to_glsl_with(Type::Vec4, numeric);
+
     match name {
         // Vector functions that map directly to GLSL builtins
         "dot" => {
@@ -404,7 +515,7 @@ fn emit_function_call(name: &str, args: Vec<GlslExpr>) -> Result<GlslExpr, GlslE
                 return Err(GlslError::UnknownFunction(name.to_string()));
             }
             Ok(GlslExpr {
-                code: format!("vec2({}, {})", args[0].code, args[1].code),
+                code: format!("{vec2_type}({}, {})", args[0].code, args[1].code),
                 typ: Type::Vec2,
             })
         }
@@ -415,7 +526,10 @@ fn emit_function_call(name: &str, args: Vec<GlslExpr>) -> Result<GlslExpr, GlslE
                 return Err(GlslError::UnknownFunction(name.to_string()));
             }
             Ok(GlslExpr {
-                code: format!("vec3({}, {}, {})", args[0].code, args[1].code, args[2].code),
+                code: format!(
+                    "{vec3_type}({}, {}, {})",
+                    args[0].code, args[1].code, args[2].code
+                ),
                 typ: Type::Vec3,
             })
         }
@@ -427,7 +541,7 @@ fn emit_function_call(name: &str, args: Vec<GlslExpr>) -> Result<GlslExpr, GlslE
             }
             Ok(GlslExpr {
                 code: format!(
-                    "vec4({}, {}, {}, {})",
+                    "{vec4_type}({}, {}, {}, {})",
                     args[0].code, args[1].code, args[2].code, args[3].code
                 ),
                 typ: Type::Vec4,
@@ -616,7 +730,7 @@ fn emit_function_call(name: &str, args: Vec<GlslExpr>) -> Result<GlslExpr, GlslE
             let angle = &args[1].code;
             Ok(GlslExpr {
                 code: format!(
-                    "vec2({v}.x*cos({angle}) - {v}.y*sin({angle}), {v}.x*sin({angle}) + {v}.y*cos({angle}))"
+                    "{vec2_type}({v}.x*cos({angle}) - {v}.y*sin({angle}), {v}.x*sin({angle}) + {v}.y*cos({angle}))"
                 ),
                 typ: Type::Vec2,
             })
@@ -631,7 +745,7 @@ fn emit_function_call(name: &str, args: Vec<GlslExpr>) -> Result<GlslExpr, GlslE
             let angle = &args[1].code;
             Ok(GlslExpr {
                 code: format!(
-                    "vec3({v}.x, {v}.y*cos({angle}) - {v}.z*sin({angle}), {v}.y*sin({angle}) + {v}.z*cos({angle}))"
+                    "{vec3_type}({v}.x, {v}.y*cos({angle}) - {v}.z*sin({angle}), {v}.y*sin({angle}) + {v}.z*cos({angle}))"
                 ),
                 typ: Type::Vec3,
             })
@@ -646,7 +760,7 @@ fn emit_function_call(name: &str, args: Vec<GlslExpr>) -> Result<GlslExpr, GlslE
             let angle = &args[1].code;
             Ok(GlslExpr {
                 code: format!(
-                    "vec3({v}.x*cos({angle}) + {v}.z*sin({angle}), {v}.y, -{v}.x*sin({angle}) + {v}.z*cos({angle}))"
+                    "{vec3_type}({v}.x*cos({angle}) + {v}.z*sin({angle}), {v}.y, -{v}.x*sin({angle}) + {v}.z*cos({angle}))"
                 ),
                 typ: Type::Vec3,
             })
@@ -661,7 +775,7 @@ fn emit_function_call(name: &str, args: Vec<GlslExpr>) -> Result<GlslExpr, GlslE
             let angle = &args[1].code;
             Ok(GlslExpr {
                 code: format!(
-                    "vec3({v}.x*cos({angle}) - {v}.y*sin({angle}), {v}.x*sin({angle}) + {v}.y*cos({angle}), {v}.z)"
+                    "{vec3_type}({v}.x*cos({angle}) - {v}.y*sin({angle}), {v}.x*sin({angle}) + {v}.y*cos({angle}), {v}.z)"
                 ),
                 typ: Type::Vec3,
             })
@@ -843,5 +957,56 @@ mod tests {
     fn test_type_mismatch() {
         let result = emit("a + b", &[("a", Type::Scalar), ("b", Type::Vec2)]);
         assert!(matches!(result, Err(GlslError::TypeMismatch { .. })));
+    }
+
+    // Integer emission tests
+    fn emit_int(expr: &str, var_types: &[(&str, Type)]) -> Result<GlslExpr, GlslError> {
+        let expr = Expr::parse(expr).unwrap();
+        let types: HashMap<String, Type> =
+            var_types.iter().map(|(k, v)| (k.to_string(), *v)).collect();
+        emit_glsl_with(expr.ast(), &types, NumericType::Int)
+    }
+
+    #[test]
+    fn test_int_literal() {
+        let result = emit_int("42", &[]).unwrap();
+        assert_eq!(result.code, "42");
+        assert_eq!(result.typ, Type::Scalar);
+    }
+
+    #[test]
+    fn test_ivec2_constructor() {
+        let result = emit_int("vec2(1, 2)", &[]).unwrap();
+        assert!(result.code.contains("ivec2("));
+        assert_eq!(result.typ, Type::Vec2);
+    }
+
+    #[test]
+    fn test_int_modulo() {
+        let result = emit_int("a % b", &[("a", Type::Scalar), ("b", Type::Scalar)]).unwrap();
+        assert!(result.code.contains("%"));
+        assert_eq!(result.typ, Type::Scalar);
+    }
+
+    #[test]
+    fn test_int_bitwise() {
+        let and = emit_int("a & b", &[("a", Type::Scalar), ("b", Type::Scalar)]).unwrap();
+        assert!(and.code.contains("&"));
+
+        let or = emit_int("a | b", &[("a", Type::Scalar), ("b", Type::Scalar)]).unwrap();
+        assert!(or.code.contains("|"));
+
+        let shl = emit_int("a << b", &[("a", Type::Scalar), ("b", Type::Scalar)]).unwrap();
+        assert!(shl.code.contains("<<"));
+
+        let shr = emit_int("a >> b", &[("a", Type::Scalar), ("b", Type::Scalar)]).unwrap();
+        assert!(shr.code.contains(">>"));
+    }
+
+    #[test]
+    fn test_int_pow() {
+        let result = emit_int("a ^ b", &[("a", Type::Scalar), ("b", Type::Scalar)]).unwrap();
+        // Integer pow casts through float
+        assert!(result.code.contains("int(pow(float("));
     }
 }

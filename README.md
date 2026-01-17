@@ -41,7 +41,7 @@ dew-core               # Syntax only: AST, parsing
 ```
 
 Domain crates are independent. Each has:
-- Generic over numeric type `T: Float`
+- Generic over numeric type `T: Numeric` (supports f32, f64, i32, i64)
 - Own `FunctionRegistry<T>` and `eval<T>()`
 - Self-contained backend modules
 

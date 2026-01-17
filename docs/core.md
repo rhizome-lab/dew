@@ -71,9 +71,15 @@ myVar_1
 | Operator | Precedence | Description |
 |----------|------------|-------------|
 | `^`      | 3 (highest)| Power (right-associative) |
-| `*` `/`  | 2          | Multiplication, division |
+| `*` `/` `%` | 2       | Multiplication, division, modulo |
 | `+` `-`  | 1          | Addition, subtraction |
+| `<<` `>>` | 0         | Bit shift left/right |
+| `&`      | -1         | Bitwise AND |
+| `\|`     | -2         | Bitwise OR |
 | `-x`     | unary      | Negation |
+| `~x`     | unary      | Bitwise NOT |
+
+Note: Modulo (`%`) and bitwise operators work with integer types (i32, i64).
 
 ### Parentheses
 

@@ -16,7 +16,7 @@ pub struct Dot;
 
 impl<T, V> LinalgFn<T, V> for Dot
 where
-    T: Float + Numeric,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -76,7 +76,7 @@ pub struct Cross;
 #[cfg(feature = "3d")]
 impl<T, V> LinalgFn<T, V> for Cross
 where
-    T: Float + Numeric,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -362,7 +362,7 @@ pub struct Hadamard;
 
 impl<T, V> LinalgFn<T, V> for Hadamard
 where
-    T: Float + Numeric,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -421,7 +421,7 @@ pub struct Lerp;
 
 impl<T, V> LinalgFn<T, V> for Lerp
 where
-    T: Float + Numeric,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -489,7 +489,7 @@ pub struct Mix;
 
 impl<T, V> LinalgFn<T, V> for Mix
 where
-    T: Float + Numeric,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -557,7 +557,7 @@ pub struct Vec2Constructor;
 
 impl<T, V> LinalgFn<T, V> for Vec2Constructor
 where
-    T: Float + Numeric,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -585,7 +585,7 @@ pub struct Vec3Constructor;
 #[cfg(feature = "3d")]
 impl<T, V> LinalgFn<T, V> for Vec3Constructor
 where
-    T: Float + Numeric,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -614,7 +614,7 @@ pub struct Vec4Constructor;
 #[cfg(feature = "4d")]
 impl<T, V> LinalgFn<T, V> for Vec4Constructor
 where
-    T: Float + Numeric,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -646,7 +646,7 @@ pub struct Mat2Constructor;
 
 impl<T, V> LinalgFn<T, V> for Mat2Constructor
 where
-    T: Float + Numeric,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -676,7 +676,7 @@ pub struct Mat3Constructor;
 #[cfg(feature = "3d")]
 impl<T, V> LinalgFn<T, V> for Mat3Constructor
 where
-    T: Float + Numeric,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -722,7 +722,7 @@ pub struct Mat4Constructor;
 #[cfg(feature = "4d")]
 impl<T, V> LinalgFn<T, V> for Mat4Constructor
 where
-    T: Float + Numeric,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -784,7 +784,7 @@ pub struct ExtractX;
 
 impl<T, V> LinalgFn<T, V> for ExtractX
 where
-    T: Float + Numeric,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -826,7 +826,7 @@ pub struct ExtractY;
 
 impl<T, V> LinalgFn<T, V> for ExtractY
 where
-    T: Float + Numeric,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -870,7 +870,7 @@ pub struct ExtractZ;
 #[cfg(feature = "3d")]
 impl<T, V> LinalgFn<T, V> for ExtractZ
 where
-    T: Float + Numeric,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -907,7 +907,7 @@ pub struct ExtractW;
 #[cfg(feature = "4d")]
 impl<T, V> LinalgFn<T, V> for ExtractW
 where
-    T: Float + Numeric,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -1637,6 +1637,55 @@ pub fn linalg_registry<T: Float + Numeric + 'static>() -> FunctionRegistry<T, Va
     registry
 }
 
+/// Register only Numeric-compatible linalg functions (no sqrt, trig, etc.).
+///
+/// This is useful for integer vector math where Float methods aren't available.
+/// Includes: dot, cross, hadamard, lerp, mix, constructors, extractors.
+pub fn register_linalg_numeric<T, V>(registry: &mut FunctionRegistry<T, V>)
+where
+    T: Numeric + 'static,
+    V: LinalgValue<T> + 'static,
+{
+    // Basic operations
+    registry.register(Dot);
+    #[cfg(feature = "3d")]
+    registry.register(Cross);
+    registry.register(Hadamard);
+    registry.register(Lerp);
+    registry.register(Mix);
+
+    // Vector constructors
+    registry.register(Vec2Constructor);
+    #[cfg(feature = "3d")]
+    registry.register(Vec3Constructor);
+    #[cfg(feature = "4d")]
+    registry.register(Vec4Constructor);
+
+    // Matrix constructors
+    registry.register(Mat2Constructor);
+    #[cfg(feature = "3d")]
+    registry.register(Mat3Constructor);
+    #[cfg(feature = "4d")]
+    registry.register(Mat4Constructor);
+
+    // Component extraction
+    registry.register(ExtractX);
+    registry.register(ExtractY);
+    #[cfg(feature = "3d")]
+    registry.register(ExtractZ);
+    #[cfg(feature = "4d")]
+    registry.register(ExtractW);
+}
+
+/// Create a registry with Numeric-compatible functions for integer vectors.
+///
+/// Use this for `i32` or `i64` vector math. For float vectors, use `linalg_registry()`.
+pub fn linalg_registry_int<T: Numeric + 'static>() -> FunctionRegistry<T, Value<T>> {
+    let mut registry = FunctionRegistry::new();
+    register_linalg_numeric(&mut registry);
+    registry
+}
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -1778,5 +1827,43 @@ mod tests {
             ],
         );
         assert_eq!(result, Value::Vec2([2.5, 5.0]));
+    }
+
+    #[test]
+    fn test_integer_vectors() {
+        use rhizome_dew_core::Expr;
+
+        // Create integer registry
+        let registry: crate::FunctionRegistry<i32, Value<i32>> = linalg_registry_int();
+
+        // Test dot product with integers
+        let expr = Expr::parse("dot(a, b)").unwrap();
+        let vars: HashMap<String, Value<i32>> = [
+            ("a".to_string(), Value::Vec2([1, 2])),
+            ("b".to_string(), Value::Vec2([3, 4])),
+        ]
+        .into();
+        let result = crate::eval(expr.ast(), &vars, &registry).unwrap();
+        assert_eq!(result, Value::Scalar(11)); // 1*3 + 2*4 = 11
+
+        // Test vec2 constructor
+        let expr = Expr::parse("vec2(x, y)").unwrap();
+        let vars: HashMap<String, Value<i32>> = [
+            ("x".to_string(), Value::Scalar(5)),
+            ("y".to_string(), Value::Scalar(7)),
+        ]
+        .into();
+        let result = crate::eval(expr.ast(), &vars, &registry).unwrap();
+        assert_eq!(result, Value::Vec2([5, 7]));
+
+        // Test hadamard (element-wise multiply)
+        let expr = Expr::parse("hadamard(a, b)").unwrap();
+        let vars: HashMap<String, Value<i32>> = [
+            ("a".to_string(), Value::Vec2([2, 3])),
+            ("b".to_string(), Value::Vec2([4, 5])),
+        ]
+        .into();
+        let result = crate::eval(expr.ast(), &vars, &registry).unwrap();
+        assert_eq!(result, Value::Vec2([8, 15]));
     }
 }
