@@ -74,8 +74,7 @@
 //! For composing multiple domain crates (e.g., linalg + rotors), the [`LinalgValue`]
 //! trait allows defining a combined value type that works with both crates.
 
-use num_traits::Float;
-use rhizome_dew_core::{Ast, BinOp, CompareOp, UnaryOp};
+use rhizome_dew_core::{Ast, BinOp, CompareOp, Numeric, UnaryOp};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -162,10 +161,10 @@ impl std::fmt::Display for Type {
 ///     Rotor2(Rotor2<T>),
 /// }
 ///
-/// impl<T: Float> LinalgValue<T> for CombinedValue<T> { ... }
-/// impl<T: Float> RotorValue<T> for CombinedValue<T> { ... }
+/// impl<T: Numeric> LinalgValue<T> for CombinedValue<T> { ... }
+/// impl<T: Numeric> RotorValue<T> for CombinedValue<T> { ... }
 /// ```
-pub trait LinalgValue<T: Float>: Clone + PartialEq + Sized + std::fmt::Debug {
+pub trait LinalgValue<T: Numeric>: Clone + PartialEq + Sized + std::fmt::Debug {
     /// Returns the type of this value.
     fn typ(&self) -> Type;
 
@@ -250,7 +249,7 @@ impl<T: Copy> Value<T> {
     }
 }
 
-impl<T: Float + std::fmt::Debug> LinalgValue<T> for Value<T> {
+impl<T: Numeric> LinalgValue<T> for Value<T> {
     fn typ(&self) -> Type {
         // Delegate to inherent method
         Value::typ(self)
@@ -359,6 +358,8 @@ pub enum Error {
     },
     /// Conditionals require scalar types.
     UnsupportedTypeForConditional(Type),
+    /// Negative exponent for integer power.
+    NegativeExponent,
 }
 
 impl std::fmt::Display for Error {
@@ -392,6 +393,9 @@ impl std::fmt::Display for Error {
             Error::UnsupportedTypeForConditional(t) => {
                 write!(f, "conditionals require scalar type, got {t}")
             }
+            Error::NegativeExponent => {
+                write!(f, "negative exponent not supported for integer types")
+            }
         }
     }
 }
@@ -415,7 +419,7 @@ pub struct Signature {
 /// This allows using custom combined value types when composing multiple domains.
 pub trait LinalgFn<T, V>: Send + Sync
 where
-    T: Float,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     /// Function name.
@@ -433,7 +437,7 @@ where
 #[derive(Clone)]
 pub struct FunctionRegistry<T, V>
 where
-    T: Float,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     funcs: HashMap<String, Arc<dyn LinalgFn<T, V>>>,
@@ -441,7 +445,7 @@ where
 
 impl<T, V> Default for FunctionRegistry<T, V>
 where
-    T: Float,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     fn default() -> Self {
@@ -453,7 +457,7 @@ where
 
 impl<T, V> FunctionRegistry<T, V>
 where
-    T: Float,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     pub fn new() -> Self {
@@ -478,14 +482,14 @@ where
 /// Generic over both numeric type `T` and value type `V`, allowing use of
 /// custom combined value types when composing multiple domains.
 ///
-/// Literals from the AST (f32) are converted to T via `T::from(f32)`.
+/// Literals from the AST (f64) are converted to T via `T::from(f64)`.
 pub fn eval<T, V>(
     ast: &Ast,
     vars: &HashMap<String, V>,
     funcs: &FunctionRegistry<T, V>,
 ) -> Result<V, Error>
 where
-    T: Float,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     match ast {

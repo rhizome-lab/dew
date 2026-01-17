@@ -246,7 +246,7 @@ impl<T: Copy> Value<T> {
 // ============================================================================
 
 #[cfg(feature = "linalg")]
-impl<T: Float + std::fmt::Debug> rhizome_dew_linalg::LinalgValue<T> for Value<T> {
+impl<T: Float + rhizome_dew_core::Numeric> rhizome_dew_linalg::LinalgValue<T> for Value<T> {
     fn typ(&self) -> rhizome_dew_linalg::Type {
         match self {
             Value::Scalar(_) => rhizome_dew_linalg::Type::Scalar,

@@ -13,6 +13,7 @@ introspect = []  # AST introspection: free_vars, etc.
 optimize = []    # Expression optimization passes
 
 [dependencies]
+num-traits = "0.2"
 
 [dev-dependencies]
 proptest = "1.5"

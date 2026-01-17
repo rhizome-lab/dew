@@ -140,8 +140,101 @@ use std::collections::HashSet;
 #[cfg(feature = "func")]
 use std::sync::Arc;
 
+use num_traits::{Num, NumCast, One, Zero};
+use std::ops::Neg;
+
 #[cfg(feature = "optimize")]
 pub mod optimize;
+
+// ============================================================================
+// Numeric Trait
+// ============================================================================
+
+/// Trait for types that can be used as numeric values in expressions.
+///
+/// This is a marker trait that combines the necessary bounds for basic
+/// arithmetic operations. Both float and integer types implement this.
+pub trait Numeric:
+    Num
+    + NumCast
+    + Copy
+    + PartialOrd
+    + Zero
+    + One
+    + Neg<Output = Self>
+    + std::fmt::Debug
+    + Send
+    + Sync
+    + 'static
+{
+    /// Whether this type supports bitwise operations.
+    fn supports_bitwise() -> bool;
+
+    /// Whether this type is a floating-point type.
+    fn is_float() -> bool;
+
+    /// Compute self raised to the power of exp.
+    /// For floats, uses powf. For integers, uses repeated multiplication
+    /// (returns None for negative exponents).
+    fn numeric_pow(self, exp: Self) -> Option<Self>;
+}
+
+impl Numeric for f32 {
+    fn supports_bitwise() -> bool {
+        false
+    }
+    fn is_float() -> bool {
+        true
+    }
+    fn numeric_pow(self, exp: Self) -> Option<Self> {
+        Some(self.powf(exp))
+    }
+}
+
+impl Numeric for f64 {
+    fn supports_bitwise() -> bool {
+        false
+    }
+    fn is_float() -> bool {
+        true
+    }
+    fn numeric_pow(self, exp: Self) -> Option<Self> {
+        Some(self.powf(exp))
+    }
+}
+
+impl Numeric for i32 {
+    fn supports_bitwise() -> bool {
+        true
+    }
+    fn is_float() -> bool {
+        false
+    }
+    fn numeric_pow(self, exp: Self) -> Option<Self> {
+        if exp < 0 {
+            return None;
+        }
+        Some(self.pow(exp as u32))
+    }
+}
+
+impl Numeric for i64 {
+    fn supports_bitwise() -> bool {
+        true
+    }
+    fn is_float() -> bool {
+        false
+    }
+    fn numeric_pow(self, exp: Self) -> Option<Self> {
+        if exp < 0 {
+            return None;
+        }
+        Some(self.pow(exp as u32))
+    }
+}
+
+// Note: u32/u64 don't implement Neg, so they're not included in Numeric.
+// Use i32/i64 for integer vectors/matrices.
 
 // ============================================================================
 // ExprFn trait and registry (func feature)

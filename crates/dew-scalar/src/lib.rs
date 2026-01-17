@@ -126,80 +126,11 @@
 //! assert!((result - std::f64::consts::SQRT_2).abs() < 1e-10);
 //! ```
 
-use num_traits::{Float, Num, NumCast, One, PrimInt, Zero};
+use num_traits::{Float, NumCast, PrimInt};
 use rhizome_dew_core::{Ast, BinOp, CompareOp, UnaryOp};
 
-// ============================================================================
-// Numeric Trait
-// ============================================================================
-
-/// Trait for types that can be used as numeric values in expressions.
-///
-/// This is a marker trait that combines the necessary bounds for basic
-/// arithmetic operations. Both float and integer types implement this.
-pub trait Numeric:
-    Num + NumCast + Copy + PartialOrd + Zero + One + std::fmt::Debug + Send + Sync + 'static
-{
-    /// Whether this type supports bitwise operations.
-    fn supports_bitwise() -> bool;
-
-    /// Whether this type is a floating-point type.
-    fn is_float() -> bool;
-}
-
-impl Numeric for f32 {
-    fn supports_bitwise() -> bool {
-        false
-    }
-    fn is_float() -> bool {
-        true
-    }
-}
-
-impl Numeric for f64 {
-    fn supports_bitwise() -> bool {
-        false
-    }
-    fn is_float() -> bool {
-        true
-    }
-}
-
-impl Numeric for i32 {
-    fn supports_bitwise() -> bool {
-        true
-    }
-    fn is_float() -> bool {
-        false
-    }
-}
-
-impl Numeric for i64 {
-    fn supports_bitwise() -> bool {
-        true
-    }
-    fn is_float() -> bool {
-        false
-    }
-}
-
-impl Numeric for u32 {
-    fn supports_bitwise() -> bool {
-        true
-    }
-    fn is_float() -> bool {
-        false
-    }
-}
-
-impl Numeric for u64 {
-    fn supports_bitwise() -> bool {
-        true
-    }
-    fn is_float() -> bool {
-        false
-    }
-}
+// Re-export Numeric from dew-core
+pub use rhizome_dew_core::Numeric;
 use std::collections::HashMap;
 use std::sync::Arc;
 

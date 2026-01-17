@@ -720,6 +720,7 @@ dependencies = [
 name = "rhizome-dew-core"
 version = "0.1.0"
 dependencies = [
+ "num-traits",
  "proptest",
 ]
 

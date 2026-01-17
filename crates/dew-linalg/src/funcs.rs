@@ -5,6 +5,7 @@
 
 use crate::{LinalgFn, LinalgValue, Signature, Type};
 use num_traits::Float;
+use rhizome_dew_core::Numeric;
 
 // ============================================================================
 // Dot product
@@ -15,7 +16,7 @@ pub struct Dot;
 
 impl<T, V> LinalgFn<T, V> for Dot
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -75,7 +76,7 @@ pub struct Cross;
 #[cfg(feature = "3d")]
 impl<T, V> LinalgFn<T, V> for Cross
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -109,7 +110,7 @@ pub struct Length;
 
 impl<T, V> LinalgFn<T, V> for Length
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -164,7 +165,7 @@ pub struct Normalize;
 
 impl<T, V> LinalgFn<T, V> for Normalize
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -222,7 +223,7 @@ pub struct Distance;
 
 impl<T, V> LinalgFn<T, V> for Distance
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -290,7 +291,7 @@ pub struct Reflect;
 
 impl<T, V> LinalgFn<T, V> for Reflect
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -361,7 +362,7 @@ pub struct Hadamard;
 
 impl<T, V> LinalgFn<T, V> for Hadamard
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -420,7 +421,7 @@ pub struct Lerp;
 
 impl<T, V> LinalgFn<T, V> for Lerp
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -488,7 +489,7 @@ pub struct Mix;
 
 impl<T, V> LinalgFn<T, V> for Mix
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -556,7 +557,7 @@ pub struct Vec2Constructor;
 
 impl<T, V> LinalgFn<T, V> for Vec2Constructor
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -584,7 +585,7 @@ pub struct Vec3Constructor;
 #[cfg(feature = "3d")]
 impl<T, V> LinalgFn<T, V> for Vec3Constructor
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -613,7 +614,7 @@ pub struct Vec4Constructor;
 #[cfg(feature = "4d")]
 impl<T, V> LinalgFn<T, V> for Vec4Constructor
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -645,7 +646,7 @@ pub struct Mat2Constructor;
 
 impl<T, V> LinalgFn<T, V> for Mat2Constructor
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -675,7 +676,7 @@ pub struct Mat3Constructor;
 #[cfg(feature = "3d")]
 impl<T, V> LinalgFn<T, V> for Mat3Constructor
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -721,7 +722,7 @@ pub struct Mat4Constructor;
 #[cfg(feature = "4d")]
 impl<T, V> LinalgFn<T, V> for Mat4Constructor
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -783,7 +784,7 @@ pub struct ExtractX;
 
 impl<T, V> LinalgFn<T, V> for ExtractX
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -825,7 +826,7 @@ pub struct ExtractY;
 
 impl<T, V> LinalgFn<T, V> for ExtractY
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -869,7 +870,7 @@ pub struct ExtractZ;
 #[cfg(feature = "3d")]
 impl<T, V> LinalgFn<T, V> for ExtractZ
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -906,7 +907,7 @@ pub struct ExtractW;
 #[cfg(feature = "4d")]
 impl<T, V> LinalgFn<T, V> for ExtractW
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -935,7 +936,7 @@ macro_rules! define_vectorized_fn {
 
         impl<T, V> LinalgFn<T, V> for $name
         where
-            T: Float,
+            T: Float + Numeric,
             V: LinalgValue<T>,
         {
             fn name(&self) -> &str {
@@ -999,7 +1000,7 @@ pub struct VecFract;
 
 impl<T, V> LinalgFn<T, V> for VecFract
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -1054,7 +1055,7 @@ pub struct VecMin;
 
 impl<T, V> LinalgFn<T, V> for VecMin
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -1113,7 +1114,7 @@ pub struct VecMax;
 
 impl<T, V> LinalgFn<T, V> for VecMax
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -1172,7 +1173,7 @@ pub struct VecClamp;
 
 impl<T, V> LinalgFn<T, V> for VecClamp
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -1242,7 +1243,7 @@ pub struct VecStep;
 
 impl<T, V> LinalgFn<T, V> for VecStep
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -1308,7 +1309,7 @@ pub struct VecSmoothstep;
 
 impl<T, V> LinalgFn<T, V> for VecSmoothstep
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -1387,7 +1388,7 @@ pub struct Rotate2D;
 
 impl<T, V> LinalgFn<T, V> for Rotate2D
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -1417,7 +1418,7 @@ pub struct RotateX;
 #[cfg(feature = "3d")]
 impl<T, V> LinalgFn<T, V> for RotateX
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -1448,7 +1449,7 @@ pub struct RotateY;
 #[cfg(feature = "3d")]
 impl<T, V> LinalgFn<T, V> for RotateY
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -1479,7 +1480,7 @@ pub struct RotateZ;
 #[cfg(feature = "3d")]
 impl<T, V> LinalgFn<T, V> for RotateZ
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -1511,7 +1512,7 @@ pub struct Rotate3D;
 #[cfg(feature = "3d")]
 impl<T, V> LinalgFn<T, V> for Rotate3D
 where
-    T: Float,
+    T: Float + Numeric,
     V: LinalgValue<T>,
 {
     fn name(&self) -> &str {
@@ -1564,7 +1565,7 @@ use crate::{FunctionRegistry, Value};
 /// Register all standard linalg functions.
 pub fn register_linalg<T, V>(registry: &mut FunctionRegistry<T, V>)
 where
-    T: Float + 'static,
+    T: Float + Numeric + 'static,
     V: LinalgValue<T> + 'static,
 {
     registry.register(Dot);
@@ -1630,10 +1631,7 @@ where
 }
 
 /// Create a new registry with all standard linalg functions using the default Value type.
-pub fn linalg_registry<T: Float + 'static>() -> FunctionRegistry<T, Value<T>>
-where
-    T: std::fmt::Debug,
-{
+pub fn linalg_registry<T: Float + Numeric + 'static>() -> FunctionRegistry<T, Value<T>> {
     let mut registry = FunctionRegistry::new();
     register_linalg(&mut registry);
     registry

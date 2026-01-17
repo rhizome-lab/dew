@@ -1,13 +1,12 @@
 //! Binary and unary operations with type dispatch.
 
 use crate::{Error, LinalgValue, Type};
-use num_traits::Float;
-use rhizome_dew_core::{BinOp, UnaryOp};
+use rhizome_dew_core::{BinOp, Numeric, UnaryOp};
 
 /// Apply a binary operation to two values.
 pub fn apply_binop<T, V>(op: BinOp, left: V, right: V) -> Result<V, Error>
 where
-    T: Float,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     match op {
@@ -30,7 +29,7 @@ where
 /// Apply a unary operation to a value.
 pub fn apply_unaryop<T, V>(op: UnaryOp, val: V) -> Result<V, Error>
 where
-    T: Float,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     match op {
@@ -46,7 +45,7 @@ where
 
 fn apply_not<T, V>(val: V) -> Result<V, Error>
 where
-    T: Float,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     if let Some(v) = val.as_scalar() {
@@ -66,7 +65,7 @@ where
 
 fn apply_add<T, V>(left: V, right: V) -> Result<V, Error>
 where
-    T: Float,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     match (left.typ(), right.typ()) {
@@ -119,7 +118,7 @@ where
 
 fn apply_sub<T, V>(left: V, right: V) -> Result<V, Error>
 where
-    T: Float,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     match (left.typ(), right.typ()) {
@@ -164,7 +163,7 @@ where
 
 fn apply_mul<T, V>(left: V, right: V) -> Result<V, Error>
 where
-    T: Float,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     match (left.typ(), right.typ()) {
@@ -322,7 +321,7 @@ where
 
 fn apply_div<T, V>(left: V, right: V) -> Result<V, Error>
 where
-    T: Float,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     match (left.typ(), right.typ()) {
@@ -365,14 +364,17 @@ where
 
 fn apply_pow<T, V>(left: V, right: V) -> Result<V, Error>
 where
-    T: Float,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     match (left.typ(), right.typ()) {
         (Type::Scalar, Type::Scalar) => {
             let a = left.as_scalar().unwrap();
             let b = right.as_scalar().unwrap();
-            Ok(V::from_scalar(a.powf(b)))
+            match a.numeric_pow(b) {
+                Some(result) => Ok(V::from_scalar(result)),
+                None => Err(Error::NegativeExponent),
+            }
         }
         _ => Err(Error::BinaryTypeMismatch {
             op: BinOp::Pow,
@@ -388,7 +390,7 @@ where
 
 fn apply_neg<T, V>(val: V) -> Result<V, Error>
 where
-    T: Float,
+    T: Numeric,
     V: LinalgValue<T>,
 {
     match val.typ() {
@@ -432,21 +434,21 @@ where
 // ============================================================================
 
 /// Mat2 * Vec2 (column vector, column-major storage)
-fn mat2_mul_vec2<T: Float>(m: &[T; 4], v: &[T; 2]) -> [T; 2] {
+fn mat2_mul_vec2<T: Numeric>(m: &[T; 4], v: &[T; 2]) -> [T; 2] {
     // m = [c0r0, c0r1, c1r0, c1r1]
     // result[i] = sum_j(m[j*2+i] * v[j])
     [m[0] * v[0] + m[2] * v[1], m[1] * v[0] + m[3] * v[1]]
 }
 
 /// Vec2 * Mat2 (row vector, column-major storage)
-fn vec2_mul_mat2<T: Float>(v: &[T; 2], m: &[T; 4]) -> [T; 2] {
+fn vec2_mul_mat2<T: Numeric>(v: &[T; 2], m: &[T; 4]) -> [T; 2] {
     // result[j] = sum_i(v[i] * m[j*2+i])
     [v[0] * m[0] + v[1] * m[1], v[0] * m[2] + v[1] * m[3]]
 }
 
 /// Mat3 * Vec3 (column vector, column-major storage)
 #[cfg(feature = "3d")]
-fn mat3_mul_vec3<T: Float>(m: &[T; 9], v: &[T; 3]) -> [T; 3] {
+fn mat3_mul_vec3<T: Numeric>(m: &[T; 9], v: &[T; 3]) -> [T; 3] {
     [
         m[0] * v[0] + m[3] * v[1] + m[6] * v[2],
         m[1] * v[0] + m[4] * v[1] + m[7] * v[2],
@@ -456,7 +458,7 @@ fn mat3_mul_vec3<T: Float>(m: &[T; 9], v: &[T; 3]) -> [T; 3] {
 
 /// Vec3 * Mat3 (row vector, column-major storage)
 #[cfg(feature = "3d")]
-fn vec3_mul_mat3<T: Float>(v: &[T; 3], m: &[T; 9]) -> [T; 3] {
+fn vec3_mul_mat3<T: Numeric>(v: &[T; 3], m: &[T; 9]) -> [T; 3] {
     [
         v[0] * m[0] + v[1] * m[1] + v[2] * m[2],
         v[0] * m[3] + v[1] * m[4] + v[2] * m[5],
@@ -466,7 +468,7 @@ fn vec3_mul_mat3<T: Float>(v: &[T; 3], m: &[T; 9]) -> [T; 3] {
 
 /// Mat4 * Vec4 (column vector, column-major storage)
 #[cfg(feature = "4d")]
-fn mat4_mul_vec4<T: Float>(m: &[T; 16], v: &[T; 4]) -> [T; 4] {
+fn mat4_mul_vec4<T: Numeric>(m: &[T; 16], v: &[T; 4]) -> [T; 4] {
     [
         m[0] * v[0] + m[4] * v[1] + m[8] * v[2] + m[12] * v[3],
         m[1] * v[0] + m[5] * v[1] + m[9] * v[2] + m[13] * v[3],
@@ -477,7 +479,7 @@ fn mat4_mul_vec4<T: Float>(m: &[T; 16], v: &[T; 4]) -> [T; 4] {
 
 /// Vec4 * Mat4 (row vector, column-major storage)
 #[cfg(feature = "4d")]
-fn vec4_mul_mat4<T: Float>(v: &[T; 4], m: &[T; 16]) -> [T; 4] {
+fn vec4_mul_mat4<T: Numeric>(v: &[T; 4], m: &[T; 16]) -> [T; 4] {
     [
         v[0] * m[0] + v[1] * m[1] + v[2] * m[2] + v[3] * m[3],
         v[0] * m[4] + v[1] * m[5] + v[2] * m[6] + v[3] * m[7],
@@ -491,7 +493,7 @@ fn vec4_mul_mat4<T: Float>(v: &[T; 4], m: &[T; 16]) -> [T; 4] {
 // ============================================================================
 
 /// Mat2 * Mat2 (column-major)
-fn mat2_mul_mat2<T: Float>(a: &[T; 4], b: &[T; 4]) -> [T; 4] {
+fn mat2_mul_mat2<T: Numeric>(a: &[T; 4], b: &[T; 4]) -> [T; 4] {
     [
         a[0] * b[0] + a[2] * b[1],
         a[1] * b[0] + a[3] * b[1],
@@ -502,7 +504,7 @@ fn mat2_mul_mat2<T: Float>(a: &[T; 4], b: &[T; 4]) -> [T; 4] {
 
 /// Mat3 * Mat3 (column-major)
 #[cfg(feature = "3d")]
-fn mat3_mul_mat3<T: Float>(a: &[T; 9], b: &[T; 9]) -> [T; 9] {
+fn mat3_mul_mat3<T: Numeric>(a: &[T; 9], b: &[T; 9]) -> [T; 9] {
     let mut result = [T::zero(); 9];
     for col in 0..3 {
         for row in 0..3 {
@@ -515,7 +517,7 @@ fn mat3_mul_mat3<T: Float>(a: &[T; 9], b: &[T; 9]) -> [T; 9] {
 
 /// Mat4 * Mat4 (column-major)
 #[cfg(feature = "4d")]
-fn mat4_mul_mat4<T: Float>(a: &[T; 16], b: &[T; 16]) -> [T; 16] {
+fn mat4_mul_mat4<T: Numeric>(a: &[T; 16], b: &[T; 16]) -> [T; 16] {
     let mut result = [T::zero(); 16];
     for col in 0..4 {
         for row in 0..4 {
@@ -541,8 +543,8 @@ mod tests {
         assert_eq!(mat2_mul_vec2(&identity, &v), [3.0, 4.0]);
 
         // Rotation 90 degrees (column-major)
-        let rot90 = [0.0, 1.0, -1.0, 0.0];
-        let v = [1.0, 0.0];
+        let rot90: [f64; 4] = [0.0, 1.0, -1.0, 0.0];
+        let v: [f64; 2] = [1.0, 0.0];
         let result = mat2_mul_vec2(&rot90, &v);
         assert!((result[0] - 0.0).abs() < 0.001);
         assert!((result[1] - 1.0).abs() < 0.001);
@@ -588,5 +590,46 @@ mod tests {
         let b: Value<f64> = Value::Vec2([3.0, 4.0]);
         let result = apply_binop::<f64, Value<f64>>(BinOp::Add, a, b).unwrap();
         assert_eq!(result, Value::Vec2([4.0, 6.0]));
+    }
+
+    #[test]
+    fn test_i32_integer_vectors() {
+        // Integer vector addition
+        let a: Value<i32> = Value::Vec2([1, 2]);
+        let b: Value<i32> = Value::Vec2([3, 4]);
+        let result = apply_binop::<i32, Value<i32>>(BinOp::Add, a, b).unwrap();
+        assert_eq!(result, Value::Vec2([4, 6]));
+
+        // Integer vector subtraction
+        let a: Value<i32> = Value::Vec2([5, 7]);
+        let b: Value<i32> = Value::Vec2([2, 3]);
+        let result = apply_binop::<i32, Value<i32>>(BinOp::Sub, a, b).unwrap();
+        assert_eq!(result, Value::Vec2([3, 4]));
+
+        // Integer scalar multiplication
+        let v: Value<i32> = Value::Vec2([2, 3]);
+        let s: Value<i32> = Value::Scalar(4);
+        let result = apply_binop::<i32, Value<i32>>(BinOp::Mul, v, s).unwrap();
+        assert_eq!(result, Value::Vec2([8, 12]));
+
+        // Integer power (positive exponent)
+        let base: Value<i32> = Value::Scalar(2);
+        let exp: Value<i32> = Value::Scalar(10);
+        let result = apply_binop::<i32, Value<i32>>(BinOp::Pow, base, exp).unwrap();
+        assert_eq!(result, Value::Scalar(1024));
+
+        // Integer power (negative exponent should error)
+        let base: Value<i32> = Value::Scalar(2);
+        let exp: Value<i32> = Value::Scalar(-1);
+        let result = apply_binop::<i32, Value<i32>>(BinOp::Pow, base, exp);
+        assert!(matches!(result, Err(crate::Error::NegativeExponent)));
+    }
+
+    #[test]
+    fn test_i32_negation() {
+        // Integer vector negation
+        let v: Value<i32> = Value::Vec2([3, -5]);
+        let result = apply_unaryop::<i32, Value<i32>>(UnaryOp::Neg, v).unwrap();
+        assert_eq!(result, Value::Vec2([-3, 5]));
     }
 }
