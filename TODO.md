@@ -39,10 +39,11 @@ via passthrough.
 
 ### Standard Library (dew-scalar)
 
-- [x] Generic over `T: Float` (works with f32, f64)
+- [x] Generic over `T: Numeric` (works with f32, f64, i32, i64)
 - [x] Own `ScalarFn<T>` trait and `FunctionRegistry<T>`
 - [x] Own `eval<T>()` function
 - [x] All standard functions: trig, exp/log, common math, interpolation
+- [x] Integer support: modulo, bitwise operators, integer-only registry
 - [x] WGSL backend (feature = "wgsl")
 - [x] Lua backend with mlua execution (feature = "lua")
 - [x] Cranelift JIT backend (feature = "cranelift")
