@@ -80,7 +80,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 mod funcs;
-mod ops;
+pub mod ops;
 
 #[cfg(feature = "wgsl")]
 pub mod wgsl;
@@ -410,7 +410,14 @@ pub struct Signature {
 }
 
 /// A function that can be called from linalg expressions.
-pub trait LinalgFn<T>: Send + Sync {
+///
+/// Generic over both the numeric type `T` and the value type `V`.
+/// This allows using custom combined value types when composing multiple domains.
+pub trait LinalgFn<T, V>: Send + Sync
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     /// Function name.
     fn name(&self) -> &str;
 
@@ -419,16 +426,24 @@ pub trait LinalgFn<T>: Send + Sync {
 
     /// Call the function with typed arguments.
     /// Caller guarantees args match one of the signatures.
-    fn call(&self, args: &[Value<T>]) -> Value<T>;
+    fn call(&self, args: &[V]) -> V;
 }
 
 /// Registry of linalg functions.
 #[derive(Clone)]
-pub struct FunctionRegistry<T> {
-    funcs: HashMap<String, Arc<dyn LinalgFn<T>>>,
+pub struct FunctionRegistry<T, V>
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
+    funcs: HashMap<String, Arc<dyn LinalgFn<T, V>>>,
 }
 
-impl<T> Default for FunctionRegistry<T> {
+impl<T, V> Default for FunctionRegistry<T, V>
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn default() -> Self {
         Self {
             funcs: HashMap::new(),
@@ -436,16 +451,20 @@ impl<T> Default for FunctionRegistry<T> {
     }
 }
 
-impl<T> FunctionRegistry<T> {
+impl<T, V> FunctionRegistry<T, V>
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn register<F: LinalgFn<T> + 'static>(&mut self, func: F) {
+    pub fn register<F: LinalgFn<T, V> + 'static>(&mut self, func: F) {
         self.funcs.insert(func.name().to_string(), Arc::new(func));
     }
 
-    pub fn get(&self, name: &str) -> Option<&Arc<dyn LinalgFn<T>>> {
+    pub fn get(&self, name: &str) -> Option<&Arc<dyn LinalgFn<T, V>>> {
         self.funcs.get(name)
     }
 }
@@ -456,16 +475,23 @@ impl<T> FunctionRegistry<T> {
 
 /// Evaluate an AST with linalg values.
 ///
+/// Generic over both numeric type `T` and value type `V`, allowing use of
+/// custom combined value types when composing multiple domains.
+///
 /// Literals from the AST (f32) are converted to T via `T::from(f32)`.
-pub fn eval<T: Float>(
+pub fn eval<T, V>(
     ast: &Ast,
-    vars: &HashMap<String, Value<T>>,
-    funcs: &FunctionRegistry<T>,
-) -> Result<Value<T>, Error> {
+    vars: &HashMap<String, V>,
+    funcs: &FunctionRegistry<T, V>,
+) -> Result<V, Error>
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     match ast {
         Ast::Num(n) => {
             // Convert f32 literal to T
-            Ok(Value::Scalar(T::from(*n).unwrap()))
+            Ok(V::from_scalar(T::from(*n).unwrap()))
         }
 
         Ast::Var(name) => vars
@@ -489,7 +515,7 @@ pub fn eval<T: Float>(
                 .get(name)
                 .ok_or_else(|| Error::UnknownFunction(name.clone()))?;
 
-            let arg_vals: Vec<Value<T>> = args
+            let arg_vals: Vec<V> = args
                 .iter()
                 .map(|a| eval(a, vars, funcs))
                 .collect::<Result<_, _>>()?;
@@ -517,17 +543,17 @@ pub fn eval<T: Float>(
             let left_val = eval(left, vars, funcs)?;
             let right_val = eval(right, vars, funcs)?;
             // Comparisons only supported for scalars
-            match (&left_val, &right_val) {
-                (Value::Scalar(l), Value::Scalar(r)) => {
+            match (left_val.as_scalar(), right_val.as_scalar()) {
+                (Some(l), Some(r)) => {
                     let result = match op {
-                        CompareOp::Lt => *l < *r,
-                        CompareOp::Le => *l <= *r,
-                        CompareOp::Gt => *l > *r,
-                        CompareOp::Ge => *l >= *r,
-                        CompareOp::Eq => *l == *r,
-                        CompareOp::Ne => *l != *r,
+                        CompareOp::Lt => l < r,
+                        CompareOp::Le => l <= r,
+                        CompareOp::Gt => l > r,
+                        CompareOp::Ge => l >= r,
+                        CompareOp::Eq => l == r,
+                        CompareOp::Ne => l != r,
                     };
-                    Ok(Value::Scalar(if result { T::one() } else { T::zero() }))
+                    Ok(V::from_scalar(if result { T::one() } else { T::zero() }))
                 }
                 _ => Err(Error::UnsupportedTypeForConditional(left_val.typ())),
             }
@@ -536,10 +562,10 @@ pub fn eval<T: Float>(
         Ast::And(left, right) => {
             let left_val = eval(left, vars, funcs)?;
             let right_val = eval(right, vars, funcs)?;
-            match (&left_val, &right_val) {
-                (Value::Scalar(l), Value::Scalar(r)) => {
+            match (left_val.as_scalar(), right_val.as_scalar()) {
+                (Some(l), Some(r)) => {
                     let result = !l.is_zero() && !r.is_zero();
-                    Ok(Value::Scalar(if result { T::one() } else { T::zero() }))
+                    Ok(V::from_scalar(if result { T::one() } else { T::zero() }))
                 }
                 _ => Err(Error::UnsupportedTypeForConditional(left_val.typ())),
             }
@@ -548,10 +574,10 @@ pub fn eval<T: Float>(
         Ast::Or(left, right) => {
             let left_val = eval(left, vars, funcs)?;
             let right_val = eval(right, vars, funcs)?;
-            match (&left_val, &right_val) {
-                (Value::Scalar(l), Value::Scalar(r)) => {
+            match (left_val.as_scalar(), right_val.as_scalar()) {
+                (Some(l), Some(r)) => {
                     let result = !l.is_zero() || !r.is_zero();
-                    Ok(Value::Scalar(if result { T::one() } else { T::zero() }))
+                    Ok(V::from_scalar(if result { T::one() } else { T::zero() }))
                 }
                 _ => Err(Error::UnsupportedTypeForConditional(left_val.typ())),
             }
@@ -559,15 +585,15 @@ pub fn eval<T: Float>(
 
         Ast::If(cond, then_ast, else_ast) => {
             let cond_val = eval(cond, vars, funcs)?;
-            match cond_val {
-                Value::Scalar(c) => {
+            match cond_val.as_scalar() {
+                Some(c) => {
                     if !c.is_zero() {
                         eval(then_ast, vars, funcs)
                     } else {
                         eval(else_ast, vars, funcs)
                     }
                 }
-                _ => Err(Error::UnsupportedTypeForConditional(cond_val.typ())),
+                None => Err(Error::UnsupportedTypeForConditional(cond_val.typ())),
             }
         }
     }

@@ -112,20 +112,17 @@ via passthrough.
 
 ## Future Work
 
-### Domain Crate Composition
+### Domain Crate Composition (completed)
 
-Currently, domain crates (scalar, linalg, complex, quaternion) have independent type systems.
-While composition traits exist (`ComplexValue<T>`, `QuaternionValue<T>`, etc.), users must
-create their own combined `Value` enum to use multiple domains together.
+Domain crates are now fully composable:
+- [x] All domain crates are generic over their value type (`V: LinalgValue<T>`, etc.)
+- [x] `dew-all` provides a pre-built combined `Value<T>` type implementing all traits
+- [x] Vec3 is shared between linalg and quaternion domains
+- [x] Users can use domain-specific `eval()` functions with the combined Value type
 
-Consider:
-- [ ] Provide a pre-built "combined" crate with all domains integrated
-- [ ] Investigate if traits can be made more composable automatically
-- [ ] Document the composition pattern more clearly with examples
-- [ ] Consider whether linalg's `vec3` and quaternion's `vec3` should share a representation
+See `crates/dew-all/src/lib.rs` for usage examples.
 
-The goal: users should be able to use scalar + linalg + complex + quaternion all at once
-without boilerplate.
+(Historical note: detailed implementation plan accidentally committed, now lives at `~/.claude/plans/dew-domain-composition.md`)
 
 ### Editor Support
 

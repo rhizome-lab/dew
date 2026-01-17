@@ -1,0 +1,55 @@
+[package]
+name = "rhizome-dew-all"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Combined domain crate for dew expressions (linalg + complex + quaternion)"
+
+[features]
+default = ["scalar", "linalg", "complex", "quaternion"]
+scalar = ["rhizome-dew-scalar"]
+linalg = ["rhizome-dew-linalg", "rhizome-dew-linalg/4d"]
+complex = ["rhizome-dew-complex"]
+quaternion = ["rhizome-dew-quaternion"]
+
+# Backend features - propagate to all domain crates
+wgsl = [
+    "rhizome-dew-scalar?/wgsl",
+    "rhizome-dew-linalg?/wgsl",
+    "rhizome-dew-complex?/wgsl",
+    "rhizome-dew-quaternion?/wgsl",
+]
+glsl = [
+    "rhizome-dew-scalar?/glsl",
+    "rhizome-dew-linalg?/glsl",
+    "rhizome-dew-complex?/glsl",
+    "rhizome-dew-quaternion?/glsl",
+]
+lua = [
+    "rhizome-dew-scalar?/lua",
+    "rhizome-dew-linalg?/lua",
+    "rhizome-dew-complex?/lua",
+    "rhizome-dew-quaternion?/lua",
+]
+cranelift = [
+    "rhizome-dew-scalar?/cranelift",
+    "rhizome-dew-linalg?/cranelift",
+    "rhizome-dew-complex?/cranelift",
+    "rhizome-dew-quaternion?/cranelift",
+]
+optimize = [
+    "rhizome-dew-scalar?/optimize",
+    "rhizome-dew-linalg?/optimize",
+    "rhizome-dew-complex?/optimize",
+    "rhizome-dew-quaternion?/optimize",
+]
+
+[dependencies]
+rhizome-dew-core = { workspace = true, features = ["func"] }
+num-traits = "0.2"
+
+# Optional domain crate dependencies
+rhizome-dew-scalar = { workspace = true, optional = true }
+rhizome-dew-linalg = { workspace = true, optional = true }
+rhizome-dew-complex = { workspace = true, optional = true }
+rhizome-dew-quaternion = { workspace = true, optional = true }

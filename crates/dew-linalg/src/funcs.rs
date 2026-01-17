@@ -3,7 +3,7 @@
 // `mut` is needed when 4d feature is enabled for sigs.push()
 #![allow(unused_mut)]
 
-use crate::{LinalgFn, Signature, Type, Value};
+use crate::{LinalgFn, LinalgValue, Signature, Type};
 use num_traits::Float;
 
 // ============================================================================
@@ -13,7 +13,11 @@ use num_traits::Float;
 /// Dot product: dot(a, b) -> scalar
 pub struct Dot;
 
-impl<T: Float> LinalgFn<T> for Dot {
+impl<T, V> LinalgFn<T, V> for Dot
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "dot"
     }
@@ -36,16 +40,24 @@ impl<T: Float> LinalgFn<T> for Dot {
         sigs
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1]) {
-            (Value::Vec2(a), Value::Vec2(b)) => Value::Scalar(a[0] * b[0] + a[1] * b[1]),
+    fn call(&self, args: &[V]) -> V {
+        match (args[0].typ(), args[1].typ()) {
+            (Type::Vec2, Type::Vec2) => {
+                let a = args[0].as_vec2().unwrap();
+                let b = args[1].as_vec2().unwrap();
+                V::from_scalar(a[0] * b[0] + a[1] * b[1])
+            }
             #[cfg(feature = "3d")]
-            (Value::Vec3(a), Value::Vec3(b)) => {
-                Value::Scalar(a[0] * b[0] + a[1] * b[1] + a[2] * b[2])
+            (Type::Vec3, Type::Vec3) => {
+                let a = args[0].as_vec3().unwrap();
+                let b = args[1].as_vec3().unwrap();
+                V::from_scalar(a[0] * b[0] + a[1] * b[1] + a[2] * b[2])
             }
             #[cfg(feature = "4d")]
-            (Value::Vec4(a), Value::Vec4(b)) => {
-                Value::Scalar(a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3])
+            (Type::Vec4, Type::Vec4) => {
+                let a = args[0].as_vec4().unwrap();
+                let b = args[1].as_vec4().unwrap();
+                V::from_scalar(a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3])
             }
             _ => unreachable!("signature mismatch"),
         }
@@ -61,7 +73,11 @@ impl<T: Float> LinalgFn<T> for Dot {
 pub struct Cross;
 
 #[cfg(feature = "3d")]
-impl<T: Float> LinalgFn<T> for Cross {
+impl<T, V> LinalgFn<T, V> for Cross
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "cross"
     }
@@ -73,15 +89,14 @@ impl<T: Float> LinalgFn<T> for Cross {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1]) {
-            (Value::Vec3(a), Value::Vec3(b)) => Value::Vec3([
-                a[1] * b[2] - a[2] * b[1],
-                a[2] * b[0] - a[0] * b[2],
-                a[0] * b[1] - a[1] * b[0],
-            ]),
-            _ => unreachable!("signature mismatch"),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let a = args[0].as_vec3().unwrap();
+        let b = args[1].as_vec3().unwrap();
+        V::from_vec3([
+            a[1] * b[2] - a[2] * b[1],
+            a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0],
+        ])
     }
 }
 
@@ -92,7 +107,11 @@ impl<T: Float> LinalgFn<T> for Cross {
 /// Vector length: length(v) -> scalar
 pub struct Length;
 
-impl<T: Float> LinalgFn<T> for Length {
+impl<T, V> LinalgFn<T, V> for Length
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "length"
     }
@@ -115,14 +134,21 @@ impl<T: Float> LinalgFn<T> for Length {
         sigs
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match &args[0] {
-            Value::Vec2(v) => Value::Scalar((v[0] * v[0] + v[1] * v[1]).sqrt()),
+    fn call(&self, args: &[V]) -> V {
+        match args[0].typ() {
+            Type::Vec2 => {
+                let v = args[0].as_vec2().unwrap();
+                V::from_scalar((v[0] * v[0] + v[1] * v[1]).sqrt())
+            }
             #[cfg(feature = "3d")]
-            Value::Vec3(v) => Value::Scalar((v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt()),
+            Type::Vec3 => {
+                let v = args[0].as_vec3().unwrap();
+                V::from_scalar((v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt())
+            }
             #[cfg(feature = "4d")]
-            Value::Vec4(v) => {
-                Value::Scalar((v[0] * v[0] + v[1] * v[1] + v[2] * v[2] + v[3] * v[3]).sqrt())
+            Type::Vec4 => {
+                let v = args[0].as_vec4().unwrap();
+                V::from_scalar((v[0] * v[0] + v[1] * v[1] + v[2] * v[2] + v[3] * v[3]).sqrt())
             }
             _ => unreachable!("signature mismatch"),
         }
@@ -136,7 +162,11 @@ impl<T: Float> LinalgFn<T> for Length {
 /// Normalize vector: normalize(v) -> vec (same type, unit length)
 pub struct Normalize;
 
-impl<T: Float> LinalgFn<T> for Normalize {
+impl<T, V> LinalgFn<T, V> for Normalize
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "normalize"
     }
@@ -159,21 +189,24 @@ impl<T: Float> LinalgFn<T> for Normalize {
         sigs
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match &args[0] {
-            Value::Vec2(v) => {
+    fn call(&self, args: &[V]) -> V {
+        match args[0].typ() {
+            Type::Vec2 => {
+                let v = args[0].as_vec2().unwrap();
                 let len = (v[0] * v[0] + v[1] * v[1]).sqrt();
-                Value::Vec2([v[0] / len, v[1] / len])
+                V::from_vec2([v[0] / len, v[1] / len])
             }
             #[cfg(feature = "3d")]
-            Value::Vec3(v) => {
+            Type::Vec3 => {
+                let v = args[0].as_vec3().unwrap();
                 let len = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
-                Value::Vec3([v[0] / len, v[1] / len, v[2] / len])
+                V::from_vec3([v[0] / len, v[1] / len, v[2] / len])
             }
             #[cfg(feature = "4d")]
-            Value::Vec4(v) => {
+            Type::Vec4 => {
+                let v = args[0].as_vec4().unwrap();
                 let len = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2] + v[3] * v[3]).sqrt();
-                Value::Vec4([v[0] / len, v[1] / len, v[2] / len, v[3] / len])
+                V::from_vec4([v[0] / len, v[1] / len, v[2] / len, v[3] / len])
             }
             _ => unreachable!("signature mismatch"),
         }
@@ -187,7 +220,11 @@ impl<T: Float> LinalgFn<T> for Normalize {
 /// Distance between two points: distance(a, b) -> scalar
 pub struct Distance;
 
-impl<T: Float> LinalgFn<T> for Distance {
+impl<T, V> LinalgFn<T, V> for Distance
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "distance"
     }
@@ -210,27 +247,33 @@ impl<T: Float> LinalgFn<T> for Distance {
         sigs
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1]) {
-            (Value::Vec2(a), Value::Vec2(b)) => {
+    fn call(&self, args: &[V]) -> V {
+        match (args[0].typ(), args[1].typ()) {
+            (Type::Vec2, Type::Vec2) => {
+                let a = args[0].as_vec2().unwrap();
+                let b = args[1].as_vec2().unwrap();
                 let dx = a[0] - b[0];
                 let dy = a[1] - b[1];
-                Value::Scalar((dx * dx + dy * dy).sqrt())
+                V::from_scalar((dx * dx + dy * dy).sqrt())
             }
             #[cfg(feature = "3d")]
-            (Value::Vec3(a), Value::Vec3(b)) => {
+            (Type::Vec3, Type::Vec3) => {
+                let a = args[0].as_vec3().unwrap();
+                let b = args[1].as_vec3().unwrap();
                 let dx = a[0] - b[0];
                 let dy = a[1] - b[1];
                 let dz = a[2] - b[2];
-                Value::Scalar((dx * dx + dy * dy + dz * dz).sqrt())
+                V::from_scalar((dx * dx + dy * dy + dz * dz).sqrt())
             }
             #[cfg(feature = "4d")]
-            (Value::Vec4(a), Value::Vec4(b)) => {
+            (Type::Vec4, Type::Vec4) => {
+                let a = args[0].as_vec4().unwrap();
+                let b = args[1].as_vec4().unwrap();
                 let dx = a[0] - b[0];
                 let dy = a[1] - b[1];
                 let dz = a[2] - b[2];
                 let dw = a[3] - b[3];
-                Value::Scalar((dx * dx + dy * dy + dz * dz + dw * dw).sqrt())
+                V::from_scalar((dx * dx + dy * dy + dz * dz + dw * dw).sqrt())
             }
             _ => unreachable!("signature mismatch"),
         }
@@ -245,7 +288,11 @@ impl<T: Float> LinalgFn<T> for Distance {
 /// Returns incident - 2 * dot(normal, incident) * normal
 pub struct Reflect;
 
-impl<T: Float> LinalgFn<T> for Reflect {
+impl<T, V> LinalgFn<T, V> for Reflect
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "reflect"
     }
@@ -268,28 +315,32 @@ impl<T: Float> LinalgFn<T> for Reflect {
         sigs
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1]) {
-            (Value::Vec2(i), Value::Vec2(n)) => {
+    fn call(&self, args: &[V]) -> V {
+        let two = T::from(2.0).unwrap();
+        match (args[0].typ(), args[1].typ()) {
+            (Type::Vec2, Type::Vec2) => {
+                let i = args[0].as_vec2().unwrap();
+                let n = args[1].as_vec2().unwrap();
                 let d = i[0] * n[0] + i[1] * n[1];
-                let two = T::from(2.0).unwrap();
-                Value::Vec2([i[0] - two * d * n[0], i[1] - two * d * n[1]])
+                V::from_vec2([i[0] - two * d * n[0], i[1] - two * d * n[1]])
             }
             #[cfg(feature = "3d")]
-            (Value::Vec3(i), Value::Vec3(n)) => {
+            (Type::Vec3, Type::Vec3) => {
+                let i = args[0].as_vec3().unwrap();
+                let n = args[1].as_vec3().unwrap();
                 let d = i[0] * n[0] + i[1] * n[1] + i[2] * n[2];
-                let two = T::from(2.0).unwrap();
-                Value::Vec3([
+                V::from_vec3([
                     i[0] - two * d * n[0],
                     i[1] - two * d * n[1],
                     i[2] - two * d * n[2],
                 ])
             }
             #[cfg(feature = "4d")]
-            (Value::Vec4(i), Value::Vec4(n)) => {
+            (Type::Vec4, Type::Vec4) => {
+                let i = args[0].as_vec4().unwrap();
+                let n = args[1].as_vec4().unwrap();
                 let d = i[0] * n[0] + i[1] * n[1] + i[2] * n[2] + i[3] * n[3];
-                let two = T::from(2.0).unwrap();
-                Value::Vec4([
+                V::from_vec4([
                     i[0] - two * d * n[0],
                     i[1] - two * d * n[1],
                     i[2] - two * d * n[2],
@@ -308,7 +359,11 @@ impl<T: Float> LinalgFn<T> for Reflect {
 /// Element-wise vector multiply: hadamard(a, b) -> vec
 pub struct Hadamard;
 
-impl<T: Float> LinalgFn<T> for Hadamard {
+impl<T, V> LinalgFn<T, V> for Hadamard
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "hadamard"
     }
@@ -331,16 +386,24 @@ impl<T: Float> LinalgFn<T> for Hadamard {
         sigs
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1]) {
-            (Value::Vec2(a), Value::Vec2(b)) => Value::Vec2([a[0] * b[0], a[1] * b[1]]),
+    fn call(&self, args: &[V]) -> V {
+        match (args[0].typ(), args[1].typ()) {
+            (Type::Vec2, Type::Vec2) => {
+                let a = args[0].as_vec2().unwrap();
+                let b = args[1].as_vec2().unwrap();
+                V::from_vec2([a[0] * b[0], a[1] * b[1]])
+            }
             #[cfg(feature = "3d")]
-            (Value::Vec3(a), Value::Vec3(b)) => {
-                Value::Vec3([a[0] * b[0], a[1] * b[1], a[2] * b[2]])
+            (Type::Vec3, Type::Vec3) => {
+                let a = args[0].as_vec3().unwrap();
+                let b = args[1].as_vec3().unwrap();
+                V::from_vec3([a[0] * b[0], a[1] * b[1], a[2] * b[2]])
             }
             #[cfg(feature = "4d")]
-            (Value::Vec4(a), Value::Vec4(b)) => {
-                Value::Vec4([a[0] * b[0], a[1] * b[1], a[2] * b[2], a[3] * b[3]])
+            (Type::Vec4, Type::Vec4) => {
+                let a = args[0].as_vec4().unwrap();
+                let b = args[1].as_vec4().unwrap();
+                V::from_vec4([a[0] * b[0], a[1] * b[1], a[2] * b[2], a[3] * b[3]])
             }
             _ => unreachable!("signature mismatch"),
         }
@@ -355,7 +418,11 @@ impl<T: Float> LinalgFn<T> for Hadamard {
 /// Returns a + (b - a) * t
 pub struct Lerp;
 
-impl<T: Float> LinalgFn<T> for Lerp {
+impl<T, V> LinalgFn<T, V> for Lerp
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "lerp"
     }
@@ -378,24 +445,35 @@ impl<T: Float> LinalgFn<T> for Lerp {
         sigs
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1], &args[2]) {
-            (Value::Vec2(a), Value::Vec2(b), Value::Scalar(t)) => {
-                Value::Vec2([a[0] + (b[0] - a[0]) * *t, a[1] + (b[1] - a[1]) * *t])
+    fn call(&self, args: &[V]) -> V {
+        let t = args[2].as_scalar().unwrap();
+        match (args[0].typ(), args[1].typ()) {
+            (Type::Vec2, Type::Vec2) => {
+                let a = args[0].as_vec2().unwrap();
+                let b = args[1].as_vec2().unwrap();
+                V::from_vec2([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t])
             }
             #[cfg(feature = "3d")]
-            (Value::Vec3(a), Value::Vec3(b), Value::Scalar(t)) => Value::Vec3([
-                a[0] + (b[0] - a[0]) * *t,
-                a[1] + (b[1] - a[1]) * *t,
-                a[2] + (b[2] - a[2]) * *t,
-            ]),
+            (Type::Vec3, Type::Vec3) => {
+                let a = args[0].as_vec3().unwrap();
+                let b = args[1].as_vec3().unwrap();
+                V::from_vec3([
+                    a[0] + (b[0] - a[0]) * t,
+                    a[1] + (b[1] - a[1]) * t,
+                    a[2] + (b[2] - a[2]) * t,
+                ])
+            }
             #[cfg(feature = "4d")]
-            (Value::Vec4(a), Value::Vec4(b), Value::Scalar(t)) => Value::Vec4([
-                a[0] + (b[0] - a[0]) * *t,
-                a[1] + (b[1] - a[1]) * *t,
-                a[2] + (b[2] - a[2]) * *t,
-                a[3] + (b[3] - a[3]) * *t,
-            ]),
+            (Type::Vec4, Type::Vec4) => {
+                let a = args[0].as_vec4().unwrap();
+                let b = args[1].as_vec4().unwrap();
+                V::from_vec4([
+                    a[0] + (b[0] - a[0]) * t,
+                    a[1] + (b[1] - a[1]) * t,
+                    a[2] + (b[2] - a[2]) * t,
+                    a[3] + (b[3] - a[3]) * t,
+                ])
+            }
             _ => unreachable!("signature mismatch"),
         }
     }
@@ -408,7 +486,11 @@ impl<T: Float> LinalgFn<T> for Lerp {
 /// Linear interpolation (GLSL naming): mix(a, b, t) -> vec
 pub struct Mix;
 
-impl<T: Float> LinalgFn<T> for Mix {
+impl<T, V> LinalgFn<T, V> for Mix
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "mix"
     }
@@ -431,24 +513,35 @@ impl<T: Float> LinalgFn<T> for Mix {
         sigs
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1], &args[2]) {
-            (Value::Vec2(a), Value::Vec2(b), Value::Scalar(t)) => {
-                Value::Vec2([a[0] + (b[0] - a[0]) * *t, a[1] + (b[1] - a[1]) * *t])
+    fn call(&self, args: &[V]) -> V {
+        let t = args[2].as_scalar().unwrap();
+        match (args[0].typ(), args[1].typ()) {
+            (Type::Vec2, Type::Vec2) => {
+                let a = args[0].as_vec2().unwrap();
+                let b = args[1].as_vec2().unwrap();
+                V::from_vec2([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t])
             }
             #[cfg(feature = "3d")]
-            (Value::Vec3(a), Value::Vec3(b), Value::Scalar(t)) => Value::Vec3([
-                a[0] + (b[0] - a[0]) * *t,
-                a[1] + (b[1] - a[1]) * *t,
-                a[2] + (b[2] - a[2]) * *t,
-            ]),
+            (Type::Vec3, Type::Vec3) => {
+                let a = args[0].as_vec3().unwrap();
+                let b = args[1].as_vec3().unwrap();
+                V::from_vec3([
+                    a[0] + (b[0] - a[0]) * t,
+                    a[1] + (b[1] - a[1]) * t,
+                    a[2] + (b[2] - a[2]) * t,
+                ])
+            }
             #[cfg(feature = "4d")]
-            (Value::Vec4(a), Value::Vec4(b), Value::Scalar(t)) => Value::Vec4([
-                a[0] + (b[0] - a[0]) * *t,
-                a[1] + (b[1] - a[1]) * *t,
-                a[2] + (b[2] - a[2]) * *t,
-                a[3] + (b[3] - a[3]) * *t,
-            ]),
+            (Type::Vec4, Type::Vec4) => {
+                let a = args[0].as_vec4().unwrap();
+                let b = args[1].as_vec4().unwrap();
+                V::from_vec4([
+                    a[0] + (b[0] - a[0]) * t,
+                    a[1] + (b[1] - a[1]) * t,
+                    a[2] + (b[2] - a[2]) * t,
+                    a[3] + (b[3] - a[3]) * t,
+                ])
+            }
             _ => unreachable!("signature mismatch"),
         }
     }
@@ -461,7 +554,11 @@ impl<T: Float> LinalgFn<T> for Mix {
 /// Construct Vec2 from two scalars: vec2(x, y) -> Vec2
 pub struct Vec2Constructor;
 
-impl<T: Float> LinalgFn<T> for Vec2Constructor {
+impl<T, V> LinalgFn<T, V> for Vec2Constructor
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "vec2"
     }
@@ -473,11 +570,10 @@ impl<T: Float> LinalgFn<T> for Vec2Constructor {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1]) {
-            (Value::Scalar(x), Value::Scalar(y)) => Value::Vec2([*x, *y]),
-            _ => unreachable!("signature mismatch"),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let x = args[0].as_scalar().unwrap();
+        let y = args[1].as_scalar().unwrap();
+        V::from_vec2([x, y])
     }
 }
 
@@ -486,7 +582,11 @@ impl<T: Float> LinalgFn<T> for Vec2Constructor {
 pub struct Vec3Constructor;
 
 #[cfg(feature = "3d")]
-impl<T: Float> LinalgFn<T> for Vec3Constructor {
+impl<T, V> LinalgFn<T, V> for Vec3Constructor
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "vec3"
     }
@@ -498,11 +598,11 @@ impl<T: Float> LinalgFn<T> for Vec3Constructor {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1], &args[2]) {
-            (Value::Scalar(x), Value::Scalar(y), Value::Scalar(z)) => Value::Vec3([*x, *y, *z]),
-            _ => unreachable!("signature mismatch"),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let x = args[0].as_scalar().unwrap();
+        let y = args[1].as_scalar().unwrap();
+        let z = args[2].as_scalar().unwrap();
+        V::from_vec3([x, y, z])
     }
 }
 
@@ -511,7 +611,11 @@ impl<T: Float> LinalgFn<T> for Vec3Constructor {
 pub struct Vec4Constructor;
 
 #[cfg(feature = "4d")]
-impl<T: Float> LinalgFn<T> for Vec4Constructor {
+impl<T, V> LinalgFn<T, V> for Vec4Constructor
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "vec4"
     }
@@ -523,13 +627,12 @@ impl<T: Float> LinalgFn<T> for Vec4Constructor {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1], &args[2], &args[3]) {
-            (Value::Scalar(x), Value::Scalar(y), Value::Scalar(z), Value::Scalar(w)) => {
-                Value::Vec4([*x, *y, *z, *w])
-            }
-            _ => unreachable!("signature mismatch"),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let x = args[0].as_scalar().unwrap();
+        let y = args[1].as_scalar().unwrap();
+        let z = args[2].as_scalar().unwrap();
+        let w = args[3].as_scalar().unwrap();
+        V::from_vec4([x, y, z, w])
     }
 }
 
@@ -540,7 +643,11 @@ impl<T: Float> LinalgFn<T> for Vec4Constructor {
 /// Construct Mat2 from four scalars (column-major): mat2(c0r0, c0r1, c1r0, c1r1) -> Mat2
 pub struct Mat2Constructor;
 
-impl<T: Float> LinalgFn<T> for Mat2Constructor {
+impl<T, V> LinalgFn<T, V> for Mat2Constructor
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "mat2"
     }
@@ -552,13 +659,12 @@ impl<T: Float> LinalgFn<T> for Mat2Constructor {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1], &args[2], &args[3]) {
-            (Value::Scalar(a), Value::Scalar(b), Value::Scalar(c), Value::Scalar(d)) => {
-                Value::Mat2([*a, *b, *c, *d])
-            }
-            _ => unreachable!("signature mismatch"),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let a = args[0].as_scalar().unwrap();
+        let b = args[1].as_scalar().unwrap();
+        let c = args[2].as_scalar().unwrap();
+        let d = args[3].as_scalar().unwrap();
+        V::from_mat2([a, b, c, d])
     }
 }
 
@@ -567,7 +673,11 @@ impl<T: Float> LinalgFn<T> for Mat2Constructor {
 pub struct Mat3Constructor;
 
 #[cfg(feature = "3d")]
-impl<T: Float> LinalgFn<T> for Mat3Constructor {
+impl<T, V> LinalgFn<T, V> for Mat3Constructor
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "mat3"
     }
@@ -589,24 +699,18 @@ impl<T: Float> LinalgFn<T> for Mat3Constructor {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (
-            &args[0], &args[1], &args[2], &args[3], &args[4], &args[5], &args[6], &args[7],
-            &args[8],
-        ) {
-            (
-                Value::Scalar(a),
-                Value::Scalar(b),
-                Value::Scalar(c),
-                Value::Scalar(d),
-                Value::Scalar(e),
-                Value::Scalar(f),
-                Value::Scalar(g),
-                Value::Scalar(h),
-                Value::Scalar(i),
-            ) => Value::Mat3([*a, *b, *c, *d, *e, *f, *g, *h, *i]),
-            _ => unreachable!("signature mismatch"),
-        }
+    fn call(&self, args: &[V]) -> V {
+        V::from_mat3([
+            args[0].as_scalar().unwrap(),
+            args[1].as_scalar().unwrap(),
+            args[2].as_scalar().unwrap(),
+            args[3].as_scalar().unwrap(),
+            args[4].as_scalar().unwrap(),
+            args[5].as_scalar().unwrap(),
+            args[6].as_scalar().unwrap(),
+            args[7].as_scalar().unwrap(),
+            args[8].as_scalar().unwrap(),
+        ])
     }
 }
 
@@ -615,7 +719,11 @@ impl<T: Float> LinalgFn<T> for Mat3Constructor {
 pub struct Mat4Constructor;
 
 #[cfg(feature = "4d")]
-impl<T: Float> LinalgFn<T> for Mat4Constructor {
+impl<T, V> LinalgFn<T, V> for Mat4Constructor
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "mat4"
     }
@@ -644,33 +752,25 @@ impl<T: Float> LinalgFn<T> for Mat4Constructor {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (
-            &args[0], &args[1], &args[2], &args[3], &args[4], &args[5], &args[6], &args[7],
-            &args[8], &args[9], &args[10], &args[11], &args[12], &args[13], &args[14], &args[15],
-        ) {
-            (
-                Value::Scalar(a),
-                Value::Scalar(b),
-                Value::Scalar(c),
-                Value::Scalar(d),
-                Value::Scalar(e),
-                Value::Scalar(f),
-                Value::Scalar(g),
-                Value::Scalar(h),
-                Value::Scalar(i),
-                Value::Scalar(j),
-                Value::Scalar(k),
-                Value::Scalar(l),
-                Value::Scalar(m),
-                Value::Scalar(n),
-                Value::Scalar(o),
-                Value::Scalar(p),
-            ) => Value::Mat4([
-                *a, *b, *c, *d, *e, *f, *g, *h, *i, *j, *k, *l, *m, *n, *o, *p,
-            ]),
-            _ => unreachable!("signature mismatch"),
-        }
+    fn call(&self, args: &[V]) -> V {
+        V::from_mat4([
+            args[0].as_scalar().unwrap(),
+            args[1].as_scalar().unwrap(),
+            args[2].as_scalar().unwrap(),
+            args[3].as_scalar().unwrap(),
+            args[4].as_scalar().unwrap(),
+            args[5].as_scalar().unwrap(),
+            args[6].as_scalar().unwrap(),
+            args[7].as_scalar().unwrap(),
+            args[8].as_scalar().unwrap(),
+            args[9].as_scalar().unwrap(),
+            args[10].as_scalar().unwrap(),
+            args[11].as_scalar().unwrap(),
+            args[12].as_scalar().unwrap(),
+            args[13].as_scalar().unwrap(),
+            args[14].as_scalar().unwrap(),
+            args[15].as_scalar().unwrap(),
+        ])
     }
 }
 
@@ -681,7 +781,11 @@ impl<T: Float> LinalgFn<T> for Mat4Constructor {
 /// Extract x component: x(v) -> Scalar
 pub struct ExtractX;
 
-impl<T: Float> LinalgFn<T> for ExtractX {
+impl<T, V> LinalgFn<T, V> for ExtractX
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "x"
     }
@@ -704,13 +808,13 @@ impl<T: Float> LinalgFn<T> for ExtractX {
         sigs
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match &args[0] {
-            Value::Vec2(v) => Value::Scalar(v[0]),
+    fn call(&self, args: &[V]) -> V {
+        match args[0].typ() {
+            Type::Vec2 => V::from_scalar(args[0].as_vec2().unwrap()[0]),
             #[cfg(feature = "3d")]
-            Value::Vec3(v) => Value::Scalar(v[0]),
+            Type::Vec3 => V::from_scalar(args[0].as_vec3().unwrap()[0]),
             #[cfg(feature = "4d")]
-            Value::Vec4(v) => Value::Scalar(v[0]),
+            Type::Vec4 => V::from_scalar(args[0].as_vec4().unwrap()[0]),
             _ => unreachable!("signature mismatch"),
         }
     }
@@ -719,7 +823,11 @@ impl<T: Float> LinalgFn<T> for ExtractX {
 /// Extract y component: y(v) -> Scalar
 pub struct ExtractY;
 
-impl<T: Float> LinalgFn<T> for ExtractY {
+impl<T, V> LinalgFn<T, V> for ExtractY
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "y"
     }
@@ -742,13 +850,13 @@ impl<T: Float> LinalgFn<T> for ExtractY {
         sigs
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match &args[0] {
-            Value::Vec2(v) => Value::Scalar(v[1]),
+    fn call(&self, args: &[V]) -> V {
+        match args[0].typ() {
+            Type::Vec2 => V::from_scalar(args[0].as_vec2().unwrap()[1]),
             #[cfg(feature = "3d")]
-            Value::Vec3(v) => Value::Scalar(v[1]),
+            Type::Vec3 => V::from_scalar(args[0].as_vec3().unwrap()[1]),
             #[cfg(feature = "4d")]
-            Value::Vec4(v) => Value::Scalar(v[1]),
+            Type::Vec4 => V::from_scalar(args[0].as_vec4().unwrap()[1]),
             _ => unreachable!("signature mismatch"),
         }
     }
@@ -759,7 +867,11 @@ impl<T: Float> LinalgFn<T> for ExtractY {
 pub struct ExtractZ;
 
 #[cfg(feature = "3d")]
-impl<T: Float> LinalgFn<T> for ExtractZ {
+impl<T, V> LinalgFn<T, V> for ExtractZ
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "z"
     }
@@ -777,11 +889,11 @@ impl<T: Float> LinalgFn<T> for ExtractZ {
         sigs
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match &args[0] {
-            Value::Vec3(v) => Value::Scalar(v[2]),
+    fn call(&self, args: &[V]) -> V {
+        match args[0].typ() {
+            Type::Vec3 => V::from_scalar(args[0].as_vec3().unwrap()[2]),
             #[cfg(feature = "4d")]
-            Value::Vec4(v) => Value::Scalar(v[2]),
+            Type::Vec4 => V::from_scalar(args[0].as_vec4().unwrap()[2]),
             _ => unreachable!("signature mismatch"),
         }
     }
@@ -792,7 +904,11 @@ impl<T: Float> LinalgFn<T> for ExtractZ {
 pub struct ExtractW;
 
 #[cfg(feature = "4d")]
-impl<T: Float> LinalgFn<T> for ExtractW {
+impl<T, V> LinalgFn<T, V> for ExtractW
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "w"
     }
@@ -804,11 +920,8 @@ impl<T: Float> LinalgFn<T> for ExtractW {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match &args[0] {
-            Value::Vec4(v) => Value::Scalar(v[3]),
-            _ => unreachable!("signature mismatch"),
-        }
+    fn call(&self, args: &[V]) -> V {
+        V::from_scalar(args[0].as_vec4().unwrap()[3])
     }
 }
 
@@ -820,7 +933,11 @@ macro_rules! define_vectorized_fn {
     ($name:ident, $fn_name:expr, $method:ident) => {
         pub struct $name;
 
-        impl<T: Float> LinalgFn<T> for $name {
+        impl<T, V> LinalgFn<T, V> for $name
+        where
+            T: Float,
+            V: LinalgValue<T>,
+        {
             fn name(&self) -> &str {
                 $fn_name
             }
@@ -843,18 +960,27 @@ macro_rules! define_vectorized_fn {
                 sigs
             }
 
-            fn call(&self, args: &[Value<T>]) -> Value<T> {
-                match &args[0] {
-                    Value::Vec2(v) => Value::Vec2([v[0].$method(), v[1].$method()]),
+            fn call(&self, args: &[V]) -> V {
+                match args[0].typ() {
+                    Type::Vec2 => {
+                        let v = args[0].as_vec2().unwrap();
+                        V::from_vec2([v[0].$method(), v[1].$method()])
+                    }
                     #[cfg(feature = "3d")]
-                    Value::Vec3(v) => Value::Vec3([v[0].$method(), v[1].$method(), v[2].$method()]),
+                    Type::Vec3 => {
+                        let v = args[0].as_vec3().unwrap();
+                        V::from_vec3([v[0].$method(), v[1].$method(), v[2].$method()])
+                    }
                     #[cfg(feature = "4d")]
-                    Value::Vec4(v) => Value::Vec4([
-                        v[0].$method(),
-                        v[1].$method(),
-                        v[2].$method(),
-                        v[3].$method(),
-                    ]),
+                    Type::Vec4 => {
+                        let v = args[0].as_vec4().unwrap();
+                        V::from_vec4([
+                            v[0].$method(),
+                            v[1].$method(),
+                            v[2].$method(),
+                            v[3].$method(),
+                        ])
+                    }
                     _ => unreachable!("signature mismatch"),
                 }
             }
@@ -871,7 +997,11 @@ define_vectorized_fn!(VecSqrt, "sqrt", sqrt);
 /// Vectorized fract: fract(v) -> VecN (fractional part)
 pub struct VecFract;
 
-impl<T: Float> LinalgFn<T> for VecFract {
+impl<T, V> LinalgFn<T, V> for VecFract
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "fract"
     }
@@ -894,13 +1024,22 @@ impl<T: Float> LinalgFn<T> for VecFract {
         sigs
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match &args[0] {
-            Value::Vec2(v) => Value::Vec2([v[0].fract(), v[1].fract()]),
+    fn call(&self, args: &[V]) -> V {
+        match args[0].typ() {
+            Type::Vec2 => {
+                let v = args[0].as_vec2().unwrap();
+                V::from_vec2([v[0].fract(), v[1].fract()])
+            }
             #[cfg(feature = "3d")]
-            Value::Vec3(v) => Value::Vec3([v[0].fract(), v[1].fract(), v[2].fract()]),
+            Type::Vec3 => {
+                let v = args[0].as_vec3().unwrap();
+                V::from_vec3([v[0].fract(), v[1].fract(), v[2].fract()])
+            }
             #[cfg(feature = "4d")]
-            Value::Vec4(v) => Value::Vec4([v[0].fract(), v[1].fract(), v[2].fract(), v[3].fract()]),
+            Type::Vec4 => {
+                let v = args[0].as_vec4().unwrap();
+                V::from_vec4([v[0].fract(), v[1].fract(), v[2].fract(), v[3].fract()])
+            }
             _ => unreachable!("signature mismatch"),
         }
     }
@@ -913,7 +1052,11 @@ impl<T: Float> LinalgFn<T> for VecFract {
 /// Vectorized min: min(a, b) -> VecN (component-wise minimum)
 pub struct VecMin;
 
-impl<T: Float> LinalgFn<T> for VecMin {
+impl<T, V> LinalgFn<T, V> for VecMin
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "min"
     }
@@ -936,20 +1079,30 @@ impl<T: Float> LinalgFn<T> for VecMin {
         sigs
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1]) {
-            (Value::Vec2(a), Value::Vec2(b)) => Value::Vec2([a[0].min(b[0]), a[1].min(b[1])]),
+    fn call(&self, args: &[V]) -> V {
+        match (args[0].typ(), args[1].typ()) {
+            (Type::Vec2, Type::Vec2) => {
+                let a = args[0].as_vec2().unwrap();
+                let b = args[1].as_vec2().unwrap();
+                V::from_vec2([a[0].min(b[0]), a[1].min(b[1])])
+            }
             #[cfg(feature = "3d")]
-            (Value::Vec3(a), Value::Vec3(b)) => {
-                Value::Vec3([a[0].min(b[0]), a[1].min(b[1]), a[2].min(b[2])])
+            (Type::Vec3, Type::Vec3) => {
+                let a = args[0].as_vec3().unwrap();
+                let b = args[1].as_vec3().unwrap();
+                V::from_vec3([a[0].min(b[0]), a[1].min(b[1]), a[2].min(b[2])])
             }
             #[cfg(feature = "4d")]
-            (Value::Vec4(a), Value::Vec4(b)) => Value::Vec4([
-                a[0].min(b[0]),
-                a[1].min(b[1]),
-                a[2].min(b[2]),
-                a[3].min(b[3]),
-            ]),
+            (Type::Vec4, Type::Vec4) => {
+                let a = args[0].as_vec4().unwrap();
+                let b = args[1].as_vec4().unwrap();
+                V::from_vec4([
+                    a[0].min(b[0]),
+                    a[1].min(b[1]),
+                    a[2].min(b[2]),
+                    a[3].min(b[3]),
+                ])
+            }
             _ => unreachable!("signature mismatch"),
         }
     }
@@ -958,7 +1111,11 @@ impl<T: Float> LinalgFn<T> for VecMin {
 /// Vectorized max: max(a, b) -> VecN (component-wise maximum)
 pub struct VecMax;
 
-impl<T: Float> LinalgFn<T> for VecMax {
+impl<T, V> LinalgFn<T, V> for VecMax
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "max"
     }
@@ -981,20 +1138,30 @@ impl<T: Float> LinalgFn<T> for VecMax {
         sigs
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1]) {
-            (Value::Vec2(a), Value::Vec2(b)) => Value::Vec2([a[0].max(b[0]), a[1].max(b[1])]),
+    fn call(&self, args: &[V]) -> V {
+        match (args[0].typ(), args[1].typ()) {
+            (Type::Vec2, Type::Vec2) => {
+                let a = args[0].as_vec2().unwrap();
+                let b = args[1].as_vec2().unwrap();
+                V::from_vec2([a[0].max(b[0]), a[1].max(b[1])])
+            }
             #[cfg(feature = "3d")]
-            (Value::Vec3(a), Value::Vec3(b)) => {
-                Value::Vec3([a[0].max(b[0]), a[1].max(b[1]), a[2].max(b[2])])
+            (Type::Vec3, Type::Vec3) => {
+                let a = args[0].as_vec3().unwrap();
+                let b = args[1].as_vec3().unwrap();
+                V::from_vec3([a[0].max(b[0]), a[1].max(b[1]), a[2].max(b[2])])
             }
             #[cfg(feature = "4d")]
-            (Value::Vec4(a), Value::Vec4(b)) => Value::Vec4([
-                a[0].max(b[0]),
-                a[1].max(b[1]),
-                a[2].max(b[2]),
-                a[3].max(b[3]),
-            ]),
+            (Type::Vec4, Type::Vec4) => {
+                let a = args[0].as_vec4().unwrap();
+                let b = args[1].as_vec4().unwrap();
+                V::from_vec4([
+                    a[0].max(b[0]),
+                    a[1].max(b[1]),
+                    a[2].max(b[2]),
+                    a[3].max(b[3]),
+                ])
+            }
             _ => unreachable!("signature mismatch"),
         }
     }
@@ -1003,7 +1170,11 @@ impl<T: Float> LinalgFn<T> for VecMax {
 /// Vectorized clamp: clamp(x, min, max) -> VecN
 pub struct VecClamp;
 
-impl<T: Float> LinalgFn<T> for VecClamp {
+impl<T, V> LinalgFn<T, V> for VecClamp
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "clamp"
     }
@@ -1026,24 +1197,37 @@ impl<T: Float> LinalgFn<T> for VecClamp {
         sigs
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1], &args[2]) {
-            (Value::Vec2(x), Value::Vec2(lo), Value::Vec2(hi)) => {
-                Value::Vec2([x[0].max(lo[0]).min(hi[0]), x[1].max(lo[1]).min(hi[1])])
+    fn call(&self, args: &[V]) -> V {
+        match (args[0].typ(), args[1].typ(), args[2].typ()) {
+            (Type::Vec2, Type::Vec2, Type::Vec2) => {
+                let x = args[0].as_vec2().unwrap();
+                let lo = args[1].as_vec2().unwrap();
+                let hi = args[2].as_vec2().unwrap();
+                V::from_vec2([x[0].max(lo[0]).min(hi[0]), x[1].max(lo[1]).min(hi[1])])
             }
             #[cfg(feature = "3d")]
-            (Value::Vec3(x), Value::Vec3(lo), Value::Vec3(hi)) => Value::Vec3([
-                x[0].max(lo[0]).min(hi[0]),
-                x[1].max(lo[1]).min(hi[1]),
-                x[2].max(lo[2]).min(hi[2]),
-            ]),
+            (Type::Vec3, Type::Vec3, Type::Vec3) => {
+                let x = args[0].as_vec3().unwrap();
+                let lo = args[1].as_vec3().unwrap();
+                let hi = args[2].as_vec3().unwrap();
+                V::from_vec3([
+                    x[0].max(lo[0]).min(hi[0]),
+                    x[1].max(lo[1]).min(hi[1]),
+                    x[2].max(lo[2]).min(hi[2]),
+                ])
+            }
             #[cfg(feature = "4d")]
-            (Value::Vec4(x), Value::Vec4(lo), Value::Vec4(hi)) => Value::Vec4([
-                x[0].max(lo[0]).min(hi[0]),
-                x[1].max(lo[1]).min(hi[1]),
-                x[2].max(lo[2]).min(hi[2]),
-                x[3].max(lo[3]).min(hi[3]),
-            ]),
+            (Type::Vec4, Type::Vec4, Type::Vec4) => {
+                let x = args[0].as_vec4().unwrap();
+                let lo = args[1].as_vec4().unwrap();
+                let hi = args[2].as_vec4().unwrap();
+                V::from_vec4([
+                    x[0].max(lo[0]).min(hi[0]),
+                    x[1].max(lo[1]).min(hi[1]),
+                    x[2].max(lo[2]).min(hi[2]),
+                    x[3].max(lo[3]).min(hi[3]),
+                ])
+            }
             _ => unreachable!("signature mismatch"),
         }
     }
@@ -1056,7 +1240,11 @@ impl<T: Float> LinalgFn<T> for VecClamp {
 /// Vectorized step: step(edge, x) -> VecN (0 if x < edge, 1 otherwise)
 pub struct VecStep;
 
-impl<T: Float> LinalgFn<T> for VecStep {
+impl<T, V> LinalgFn<T, V> for VecStep
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "step"
     }
@@ -1079,27 +1267,37 @@ impl<T: Float> LinalgFn<T> for VecStep {
         sigs
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
+    fn call(&self, args: &[V]) -> V {
         fn step<T: Float>(edge: T, x: T) -> T {
             if x < edge { T::zero() } else { T::one() }
         }
-        match (&args[0], &args[1]) {
-            (Value::Vec2(edge), Value::Vec2(x)) => {
-                Value::Vec2([step(edge[0], x[0]), step(edge[1], x[1])])
+        match (args[0].typ(), args[1].typ()) {
+            (Type::Vec2, Type::Vec2) => {
+                let edge = args[0].as_vec2().unwrap();
+                let x = args[1].as_vec2().unwrap();
+                V::from_vec2([step(edge[0], x[0]), step(edge[1], x[1])])
             }
             #[cfg(feature = "3d")]
-            (Value::Vec3(edge), Value::Vec3(x)) => Value::Vec3([
-                step(edge[0], x[0]),
-                step(edge[1], x[1]),
-                step(edge[2], x[2]),
-            ]),
+            (Type::Vec3, Type::Vec3) => {
+                let edge = args[0].as_vec3().unwrap();
+                let x = args[1].as_vec3().unwrap();
+                V::from_vec3([
+                    step(edge[0], x[0]),
+                    step(edge[1], x[1]),
+                    step(edge[2], x[2]),
+                ])
+            }
             #[cfg(feature = "4d")]
-            (Value::Vec4(edge), Value::Vec4(x)) => Value::Vec4([
-                step(edge[0], x[0]),
-                step(edge[1], x[1]),
-                step(edge[2], x[2]),
-                step(edge[3], x[3]),
-            ]),
+            (Type::Vec4, Type::Vec4) => {
+                let edge = args[0].as_vec4().unwrap();
+                let x = args[1].as_vec4().unwrap();
+                V::from_vec4([
+                    step(edge[0], x[0]),
+                    step(edge[1], x[1]),
+                    step(edge[2], x[2]),
+                    step(edge[3], x[3]),
+                ])
+            }
             _ => unreachable!("signature mismatch"),
         }
     }
@@ -1108,7 +1306,11 @@ impl<T: Float> LinalgFn<T> for VecStep {
 /// Vectorized smoothstep: smoothstep(edge0, edge1, x) -> VecN
 pub struct VecSmoothstep;
 
-impl<T: Float> LinalgFn<T> for VecSmoothstep {
+impl<T, V> LinalgFn<T, V> for VecSmoothstep
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "smoothstep"
     }
@@ -1131,31 +1333,46 @@ impl<T: Float> LinalgFn<T> for VecSmoothstep {
         sigs
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
+    fn call(&self, args: &[V]) -> V {
         fn smoothstep<T: Float>(edge0: T, edge1: T, x: T) -> T {
             let t = ((x - edge0) / (edge1 - edge0)).max(T::zero()).min(T::one());
             let three = T::from(3.0).unwrap();
             let two = T::from(2.0).unwrap();
             t * t * (three - two * t)
         }
-        match (&args[0], &args[1], &args[2]) {
-            (Value::Vec2(e0), Value::Vec2(e1), Value::Vec2(x)) => Value::Vec2([
-                smoothstep(e0[0], e1[0], x[0]),
-                smoothstep(e0[1], e1[1], x[1]),
-            ]),
+        match (args[0].typ(), args[1].typ(), args[2].typ()) {
+            (Type::Vec2, Type::Vec2, Type::Vec2) => {
+                let e0 = args[0].as_vec2().unwrap();
+                let e1 = args[1].as_vec2().unwrap();
+                let x = args[2].as_vec2().unwrap();
+                V::from_vec2([
+                    smoothstep(e0[0], e1[0], x[0]),
+                    smoothstep(e0[1], e1[1], x[1]),
+                ])
+            }
             #[cfg(feature = "3d")]
-            (Value::Vec3(e0), Value::Vec3(e1), Value::Vec3(x)) => Value::Vec3([
-                smoothstep(e0[0], e1[0], x[0]),
-                smoothstep(e0[1], e1[1], x[1]),
-                smoothstep(e0[2], e1[2], x[2]),
-            ]),
+            (Type::Vec3, Type::Vec3, Type::Vec3) => {
+                let e0 = args[0].as_vec3().unwrap();
+                let e1 = args[1].as_vec3().unwrap();
+                let x = args[2].as_vec3().unwrap();
+                V::from_vec3([
+                    smoothstep(e0[0], e1[0], x[0]),
+                    smoothstep(e0[1], e1[1], x[1]),
+                    smoothstep(e0[2], e1[2], x[2]),
+                ])
+            }
             #[cfg(feature = "4d")]
-            (Value::Vec4(e0), Value::Vec4(e1), Value::Vec4(x)) => Value::Vec4([
-                smoothstep(e0[0], e1[0], x[0]),
-                smoothstep(e0[1], e1[1], x[1]),
-                smoothstep(e0[2], e1[2], x[2]),
-                smoothstep(e0[3], e1[3], x[3]),
-            ]),
+            (Type::Vec4, Type::Vec4, Type::Vec4) => {
+                let e0 = args[0].as_vec4().unwrap();
+                let e1 = args[1].as_vec4().unwrap();
+                let x = args[2].as_vec4().unwrap();
+                V::from_vec4([
+                    smoothstep(e0[0], e1[0], x[0]),
+                    smoothstep(e0[1], e1[1], x[1]),
+                    smoothstep(e0[2], e1[2], x[2]),
+                    smoothstep(e0[3], e1[3], x[3]),
+                ])
+            }
             _ => unreachable!("signature mismatch"),
         }
     }
@@ -1168,7 +1385,11 @@ impl<T: Float> LinalgFn<T> for VecSmoothstep {
 /// Rotate a 2D vector by an angle: rotate2d(v, angle) -> Vec2
 pub struct Rotate2D;
 
-impl<T: Float> LinalgFn<T> for Rotate2D {
+impl<T, V> LinalgFn<T, V> for Rotate2D
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "rotate2d"
     }
@@ -1180,15 +1401,12 @@ impl<T: Float> LinalgFn<T> for Rotate2D {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1]) {
-            (Value::Vec2(v), Value::Scalar(angle)) => {
-                let c = angle.cos();
-                let s = angle.sin();
-                Value::Vec2([v[0] * c - v[1] * s, v[0] * s + v[1] * c])
-            }
-            _ => unreachable!("signature mismatch"),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let v = args[0].as_vec2().unwrap();
+        let angle = args[1].as_scalar().unwrap();
+        let c = angle.cos();
+        let s = angle.sin();
+        V::from_vec2([v[0] * c - v[1] * s, v[0] * s + v[1] * c])
     }
 }
 
@@ -1197,7 +1415,11 @@ impl<T: Float> LinalgFn<T> for Rotate2D {
 pub struct RotateX;
 
 #[cfg(feature = "3d")]
-impl<T: Float> LinalgFn<T> for RotateX {
+impl<T, V> LinalgFn<T, V> for RotateX
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "rotate_x"
     }
@@ -1209,16 +1431,13 @@ impl<T: Float> LinalgFn<T> for RotateX {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1]) {
-            (Value::Vec3(v), Value::Scalar(angle)) => {
-                let c = angle.cos();
-                let s = angle.sin();
-                // Rotation around X: [x, y*c - z*s, y*s + z*c]
-                Value::Vec3([v[0], v[1] * c - v[2] * s, v[1] * s + v[2] * c])
-            }
-            _ => unreachable!("signature mismatch"),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let v = args[0].as_vec3().unwrap();
+        let angle = args[1].as_scalar().unwrap();
+        let c = angle.cos();
+        let s = angle.sin();
+        // Rotation around X: [x, y*c - z*s, y*s + z*c]
+        V::from_vec3([v[0], v[1] * c - v[2] * s, v[1] * s + v[2] * c])
     }
 }
 
@@ -1227,7 +1446,11 @@ impl<T: Float> LinalgFn<T> for RotateX {
 pub struct RotateY;
 
 #[cfg(feature = "3d")]
-impl<T: Float> LinalgFn<T> for RotateY {
+impl<T, V> LinalgFn<T, V> for RotateY
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "rotate_y"
     }
@@ -1239,16 +1462,13 @@ impl<T: Float> LinalgFn<T> for RotateY {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1]) {
-            (Value::Vec3(v), Value::Scalar(angle)) => {
-                let c = angle.cos();
-                let s = angle.sin();
-                // Rotation around Y: [x*c + z*s, y, -x*s + z*c]
-                Value::Vec3([v[0] * c + v[2] * s, v[1], -v[0] * s + v[2] * c])
-            }
-            _ => unreachable!("signature mismatch"),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let v = args[0].as_vec3().unwrap();
+        let angle = args[1].as_scalar().unwrap();
+        let c = angle.cos();
+        let s = angle.sin();
+        // Rotation around Y: [x*c + z*s, y, -x*s + z*c]
+        V::from_vec3([v[0] * c + v[2] * s, v[1], -v[0] * s + v[2] * c])
     }
 }
 
@@ -1257,7 +1477,11 @@ impl<T: Float> LinalgFn<T> for RotateY {
 pub struct RotateZ;
 
 #[cfg(feature = "3d")]
-impl<T: Float> LinalgFn<T> for RotateZ {
+impl<T, V> LinalgFn<T, V> for RotateZ
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "rotate_z"
     }
@@ -1269,16 +1493,13 @@ impl<T: Float> LinalgFn<T> for RotateZ {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1]) {
-            (Value::Vec3(v), Value::Scalar(angle)) => {
-                let c = angle.cos();
-                let s = angle.sin();
-                // Rotation around Z: [x*c - y*s, x*s + y*c, z]
-                Value::Vec3([v[0] * c - v[1] * s, v[0] * s + v[1] * c, v[2]])
-            }
-            _ => unreachable!("signature mismatch"),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let v = args[0].as_vec3().unwrap();
+        let angle = args[1].as_scalar().unwrap();
+        let c = angle.cos();
+        let s = angle.sin();
+        // Rotation around Z: [x*c - y*s, x*s + y*c, z]
+        V::from_vec3([v[0] * c - v[1] * s, v[0] * s + v[1] * c, v[2]])
     }
 }
 
@@ -1288,7 +1509,11 @@ impl<T: Float> LinalgFn<T> for RotateZ {
 pub struct Rotate3D;
 
 #[cfg(feature = "3d")]
-impl<T: Float> LinalgFn<T> for Rotate3D {
+impl<T, V> LinalgFn<T, V> for Rotate3D
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     fn name(&self) -> &str {
         "rotate3d"
     }
@@ -1300,35 +1525,33 @@ impl<T: Float> LinalgFn<T> for Rotate3D {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1], &args[2]) {
-            (Value::Vec3(v), Value::Vec3(axis), Value::Scalar(angle)) => {
-                // Rodrigues' rotation formula:
-                // v' = v*cos(θ) + (k × v)*sin(θ) + k*(k·v)*(1-cos(θ))
-                let c = angle.cos();
-                let s = angle.sin();
-                let k = axis; // Assumed normalized
+    fn call(&self, args: &[V]) -> V {
+        let v = args[0].as_vec3().unwrap();
+        let k = args[1].as_vec3().unwrap(); // Assumed normalized
+        let angle = args[2].as_scalar().unwrap();
 
-                // k · v (dot product)
-                let k_dot_v = k[0] * v[0] + k[1] * v[1] + k[2] * v[2];
+        // Rodrigues' rotation formula:
+        // v' = v*cos(θ) + (k × v)*sin(θ) + k*(k·v)*(1-cos(θ))
+        let c = angle.cos();
+        let s = angle.sin();
 
-                // k × v (cross product)
-                let k_cross_v = [
-                    k[1] * v[2] - k[2] * v[1],
-                    k[2] * v[0] - k[0] * v[2],
-                    k[0] * v[1] - k[1] * v[0],
-                ];
+        // k · v (dot product)
+        let k_dot_v = k[0] * v[0] + k[1] * v[1] + k[2] * v[2];
 
-                let one_minus_c = T::one() - c;
+        // k × v (cross product)
+        let k_cross_v = [
+            k[1] * v[2] - k[2] * v[1],
+            k[2] * v[0] - k[0] * v[2],
+            k[0] * v[1] - k[1] * v[0],
+        ];
 
-                Value::Vec3([
-                    v[0] * c + k_cross_v[0] * s + k[0] * k_dot_v * one_minus_c,
-                    v[1] * c + k_cross_v[1] * s + k[1] * k_dot_v * one_minus_c,
-                    v[2] * c + k_cross_v[2] * s + k[2] * k_dot_v * one_minus_c,
-                ])
-            }
-            _ => unreachable!("signature mismatch"),
-        }
+        let one_minus_c = T::one() - c;
+
+        V::from_vec3([
+            v[0] * c + k_cross_v[0] * s + k[0] * k_dot_v * one_minus_c,
+            v[1] * c + k_cross_v[1] * s + k[1] * k_dot_v * one_minus_c,
+            v[2] * c + k_cross_v[2] * s + k[2] * k_dot_v * one_minus_c,
+        ])
     }
 }
 
@@ -1336,10 +1559,14 @@ impl<T: Float> LinalgFn<T> for Rotate3D {
 // Registry helper
 // ============================================================================
 
-use crate::FunctionRegistry;
+use crate::{FunctionRegistry, Value};
 
 /// Register all standard linalg functions.
-pub fn register_linalg<T: Float + 'static>(registry: &mut FunctionRegistry<T>) {
+pub fn register_linalg<T, V>(registry: &mut FunctionRegistry<T, V>)
+where
+    T: Float + 'static,
+    V: LinalgValue<T> + 'static,
+{
     registry.register(Dot);
     #[cfg(feature = "3d")]
     registry.register(Cross);
@@ -1402,8 +1629,11 @@ pub fn register_linalg<T: Float + 'static>(registry: &mut FunctionRegistry<T>) {
     registry.register(Rotate3D);
 }
 
-/// Create a new registry with all standard linalg functions.
-pub fn linalg_registry<T: Float + 'static>() -> FunctionRegistry<T> {
+/// Create a new registry with all standard linalg functions using the default Value type.
+pub fn linalg_registry<T: Float + 'static>() -> FunctionRegistry<T, Value<T>>
+where
+    T: std::fmt::Debug,
+{
     let mut registry = FunctionRegistry::new();
     register_linalg(&mut registry);
     registry

@@ -1,15 +1,15 @@
 //! Binary and unary operations with type dispatch.
 
-use crate::{Error, Value};
+use crate::{Error, LinalgValue, Type};
 use num_traits::Float;
 use rhizome_dew_core::{BinOp, UnaryOp};
 
 /// Apply a binary operation to two values.
-pub fn apply_binop<T: Float>(
-    op: BinOp,
-    left: Value<T>,
-    right: Value<T>,
-) -> Result<Value<T>, Error> {
+pub fn apply_binop<T, V>(op: BinOp, left: V, right: V) -> Result<V, Error>
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     match op {
         BinOp::Add => apply_add(left, right),
         BinOp::Sub => apply_sub(left, right),
@@ -20,23 +20,30 @@ pub fn apply_binop<T: Float>(
 }
 
 /// Apply a unary operation to a value.
-pub fn apply_unaryop<T: Float>(op: UnaryOp, val: Value<T>) -> Result<Value<T>, Error> {
+pub fn apply_unaryop<T, V>(op: UnaryOp, val: V) -> Result<V, Error>
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
     match op {
         UnaryOp::Neg => apply_neg(val),
         UnaryOp::Not => apply_not(val),
     }
 }
 
-fn apply_not<T: Float>(val: Value<T>) -> Result<Value<T>, Error> {
-    match val {
-        Value::Scalar(v) => {
-            let result = if v.is_zero() { T::one() } else { T::zero() };
-            Ok(Value::Scalar(result))
-        }
-        _ => Err(Error::UnaryTypeMismatch {
+fn apply_not<T, V>(val: V) -> Result<V, Error>
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
+    if let Some(v) = val.as_scalar() {
+        let result = if v.is_zero() { T::one() } else { T::zero() };
+        Ok(V::from_scalar(result))
+    } else {
+        Err(Error::UnaryTypeMismatch {
             op: UnaryOp::Not,
             operand: val.typ(),
-        }),
+        })
     }
 }
 
@@ -44,28 +51,46 @@ fn apply_not<T: Float>(val: Value<T>) -> Result<Value<T>, Error> {
 // Addition
 // ============================================================================
 
-fn apply_add<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Error> {
-    match (&left, &right) {
+fn apply_add<T, V>(left: V, right: V) -> Result<V, Error>
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
+    match (left.typ(), right.typ()) {
         // Scalar + Scalar
-        (Value::Scalar(a), Value::Scalar(b)) => Ok(Value::Scalar(*a + *b)),
+        (Type::Scalar, Type::Scalar) => {
+            let a = left.as_scalar().unwrap();
+            let b = right.as_scalar().unwrap();
+            Ok(V::from_scalar(a + b))
+        }
 
         // Vec2 + Vec2
-        (Value::Vec2(a), Value::Vec2(b)) => Ok(Value::Vec2([a[0] + b[0], a[1] + b[1]])),
+        (Type::Vec2, Type::Vec2) => {
+            let a = left.as_vec2().unwrap();
+            let b = right.as_vec2().unwrap();
+            Ok(V::from_vec2([a[0] + b[0], a[1] + b[1]]))
+        }
 
         // Vec3 + Vec3
         #[cfg(feature = "3d")]
-        (Value::Vec3(a), Value::Vec3(b)) => {
-            Ok(Value::Vec3([a[0] + b[0], a[1] + b[1], a[2] + b[2]]))
+        (Type::Vec3, Type::Vec3) => {
+            let a = left.as_vec3().unwrap();
+            let b = right.as_vec3().unwrap();
+            Ok(V::from_vec3([a[0] + b[0], a[1] + b[1], a[2] + b[2]]))
         }
 
         // Vec4 + Vec4
         #[cfg(feature = "4d")]
-        (Value::Vec4(a), Value::Vec4(b)) => Ok(Value::Vec4([
-            a[0] + b[0],
-            a[1] + b[1],
-            a[2] + b[2],
-            a[3] + b[3],
-        ])),
+        (Type::Vec4, Type::Vec4) => {
+            let a = left.as_vec4().unwrap();
+            let b = right.as_vec4().unwrap();
+            Ok(V::from_vec4([
+                a[0] + b[0],
+                a[1] + b[1],
+                a[2] + b[2],
+                a[3] + b[3],
+            ]))
+        }
 
         _ => Err(Error::BinaryTypeMismatch {
             op: BinOp::Add,
@@ -79,21 +104,39 @@ fn apply_add<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Erro
 // Subtraction
 // ============================================================================
 
-fn apply_sub<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Error> {
-    match (&left, &right) {
-        (Value::Scalar(a), Value::Scalar(b)) => Ok(Value::Scalar(*a - *b)),
-        (Value::Vec2(a), Value::Vec2(b)) => Ok(Value::Vec2([a[0] - b[0], a[1] - b[1]])),
+fn apply_sub<T, V>(left: V, right: V) -> Result<V, Error>
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
+    match (left.typ(), right.typ()) {
+        (Type::Scalar, Type::Scalar) => {
+            let a = left.as_scalar().unwrap();
+            let b = right.as_scalar().unwrap();
+            Ok(V::from_scalar(a - b))
+        }
+        (Type::Vec2, Type::Vec2) => {
+            let a = left.as_vec2().unwrap();
+            let b = right.as_vec2().unwrap();
+            Ok(V::from_vec2([a[0] - b[0], a[1] - b[1]]))
+        }
         #[cfg(feature = "3d")]
-        (Value::Vec3(a), Value::Vec3(b)) => {
-            Ok(Value::Vec3([a[0] - b[0], a[1] - b[1], a[2] - b[2]]))
+        (Type::Vec3, Type::Vec3) => {
+            let a = left.as_vec3().unwrap();
+            let b = right.as_vec3().unwrap();
+            Ok(V::from_vec3([a[0] - b[0], a[1] - b[1], a[2] - b[2]]))
         }
         #[cfg(feature = "4d")]
-        (Value::Vec4(a), Value::Vec4(b)) => Ok(Value::Vec4([
-            a[0] - b[0],
-            a[1] - b[1],
-            a[2] - b[2],
-            a[3] - b[3],
-        ])),
+        (Type::Vec4, Type::Vec4) => {
+            let a = left.as_vec4().unwrap();
+            let b = right.as_vec4().unwrap();
+            Ok(V::from_vec4([
+                a[0] - b[0],
+                a[1] - b[1],
+                a[2] - b[2],
+                a[3] - b[3],
+            ]))
+        }
         _ => Err(Error::BinaryTypeMismatch {
             op: BinOp::Sub,
             left: left.typ(),
@@ -106,67 +149,151 @@ fn apply_sub<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Erro
 // Multiplication (scalar * scalar, vec * scalar, scalar * vec, mat * vec, mat * mat)
 // ============================================================================
 
-fn apply_mul<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Error> {
-    match (&left, &right) {
+fn apply_mul<T, V>(left: V, right: V) -> Result<V, Error>
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
+    match (left.typ(), right.typ()) {
         // Scalar * Scalar
-        (Value::Scalar(a), Value::Scalar(b)) => Ok(Value::Scalar(*a * *b)),
+        (Type::Scalar, Type::Scalar) => {
+            let a = left.as_scalar().unwrap();
+            let b = right.as_scalar().unwrap();
+            Ok(V::from_scalar(a * b))
+        }
 
         // Vec * Scalar (scaling)
-        (Value::Vec2(v), Value::Scalar(s)) => Ok(Value::Vec2([v[0] * *s, v[1] * *s])),
+        (Type::Vec2, Type::Scalar) => {
+            let v = left.as_vec2().unwrap();
+            let s = right.as_scalar().unwrap();
+            Ok(V::from_vec2([v[0] * s, v[1] * s]))
+        }
         #[cfg(feature = "3d")]
-        (Value::Vec3(v), Value::Scalar(s)) => Ok(Value::Vec3([v[0] * *s, v[1] * *s, v[2] * *s])),
+        (Type::Vec3, Type::Scalar) => {
+            let v = left.as_vec3().unwrap();
+            let s = right.as_scalar().unwrap();
+            Ok(V::from_vec3([v[0] * s, v[1] * s, v[2] * s]))
+        }
         #[cfg(feature = "4d")]
-        (Value::Vec4(v), Value::Scalar(s)) => {
-            Ok(Value::Vec4([v[0] * *s, v[1] * *s, v[2] * *s, v[3] * *s]))
+        (Type::Vec4, Type::Scalar) => {
+            let v = left.as_vec4().unwrap();
+            let s = right.as_scalar().unwrap();
+            Ok(V::from_vec4([v[0] * s, v[1] * s, v[2] * s, v[3] * s]))
         }
 
         // Scalar * Vec (scaling, commutative)
-        (Value::Scalar(s), Value::Vec2(v)) => Ok(Value::Vec2([*s * v[0], *s * v[1]])),
+        (Type::Scalar, Type::Vec2) => {
+            let s = left.as_scalar().unwrap();
+            let v = right.as_vec2().unwrap();
+            Ok(V::from_vec2([s * v[0], s * v[1]]))
+        }
         #[cfg(feature = "3d")]
-        (Value::Scalar(s), Value::Vec3(v)) => Ok(Value::Vec3([*s * v[0], *s * v[1], *s * v[2]])),
+        (Type::Scalar, Type::Vec3) => {
+            let s = left.as_scalar().unwrap();
+            let v = right.as_vec3().unwrap();
+            Ok(V::from_vec3([s * v[0], s * v[1], s * v[2]]))
+        }
         #[cfg(feature = "4d")]
-        (Value::Scalar(s), Value::Vec4(v)) => {
-            Ok(Value::Vec4([*s * v[0], *s * v[1], *s * v[2], *s * v[3]]))
+        (Type::Scalar, Type::Vec4) => {
+            let s = left.as_scalar().unwrap();
+            let v = right.as_vec4().unwrap();
+            Ok(V::from_vec4([s * v[0], s * v[1], s * v[2], s * v[3]]))
         }
 
         // Mat * Vec (column vector)
-        (Value::Mat2(m), Value::Vec2(v)) => Ok(Value::Vec2(mat2_mul_vec2(m, v))),
+        (Type::Mat2, Type::Vec2) => {
+            let m = left.as_mat2().unwrap();
+            let v = right.as_vec2().unwrap();
+            Ok(V::from_vec2(mat2_mul_vec2(&m, &v)))
+        }
         #[cfg(feature = "3d")]
-        (Value::Mat3(m), Value::Vec3(v)) => Ok(Value::Vec3(mat3_mul_vec3(m, v))),
+        (Type::Mat3, Type::Vec3) => {
+            let m = left.as_mat3().unwrap();
+            let v = right.as_vec3().unwrap();
+            Ok(V::from_vec3(mat3_mul_vec3(&m, &v)))
+        }
         #[cfg(feature = "4d")]
-        (Value::Mat4(m), Value::Vec4(v)) => Ok(Value::Vec4(mat4_mul_vec4(m, v))),
+        (Type::Mat4, Type::Vec4) => {
+            let m = left.as_mat4().unwrap();
+            let v = right.as_vec4().unwrap();
+            Ok(V::from_vec4(mat4_mul_vec4(&m, &v)))
+        }
 
         // Vec * Mat (row vector)
-        (Value::Vec2(v), Value::Mat2(m)) => Ok(Value::Vec2(vec2_mul_mat2(v, m))),
+        (Type::Vec2, Type::Mat2) => {
+            let v = left.as_vec2().unwrap();
+            let m = right.as_mat2().unwrap();
+            Ok(V::from_vec2(vec2_mul_mat2(&v, &m)))
+        }
         #[cfg(feature = "3d")]
-        (Value::Vec3(v), Value::Mat3(m)) => Ok(Value::Vec3(vec3_mul_mat3(v, m))),
+        (Type::Vec3, Type::Mat3) => {
+            let v = left.as_vec3().unwrap();
+            let m = right.as_mat3().unwrap();
+            Ok(V::from_vec3(vec3_mul_mat3(&v, &m)))
+        }
         #[cfg(feature = "4d")]
-        (Value::Vec4(v), Value::Mat4(m)) => Ok(Value::Vec4(vec4_mul_mat4(v, m))),
+        (Type::Vec4, Type::Mat4) => {
+            let v = left.as_vec4().unwrap();
+            let m = right.as_mat4().unwrap();
+            Ok(V::from_vec4(vec4_mul_mat4(&v, &m)))
+        }
 
         // Mat * Scalar (scaling)
-        (Value::Mat2(m), Value::Scalar(s)) => {
-            Ok(Value::Mat2([m[0] * *s, m[1] * *s, m[2] * *s, m[3] * *s]))
+        (Type::Mat2, Type::Scalar) => {
+            let m = left.as_mat2().unwrap();
+            let s = right.as_scalar().unwrap();
+            Ok(V::from_mat2([m[0] * s, m[1] * s, m[2] * s, m[3] * s]))
         }
         #[cfg(feature = "3d")]
-        (Value::Mat3(m), Value::Scalar(s)) => Ok(Value::Mat3(std::array::from_fn(|i| m[i] * *s))),
+        (Type::Mat3, Type::Scalar) => {
+            let m = left.as_mat3().unwrap();
+            let s = right.as_scalar().unwrap();
+            Ok(V::from_mat3(std::array::from_fn(|i| m[i] * s)))
+        }
         #[cfg(feature = "4d")]
-        (Value::Mat4(m), Value::Scalar(s)) => Ok(Value::Mat4(std::array::from_fn(|i| m[i] * *s))),
+        (Type::Mat4, Type::Scalar) => {
+            let m = left.as_mat4().unwrap();
+            let s = right.as_scalar().unwrap();
+            Ok(V::from_mat4(std::array::from_fn(|i| m[i] * s)))
+        }
 
         // Scalar * Mat (scaling, commutative)
-        (Value::Scalar(s), Value::Mat2(m)) => {
-            Ok(Value::Mat2([*s * m[0], *s * m[1], *s * m[2], *s * m[3]]))
+        (Type::Scalar, Type::Mat2) => {
+            let s = left.as_scalar().unwrap();
+            let m = right.as_mat2().unwrap();
+            Ok(V::from_mat2([s * m[0], s * m[1], s * m[2], s * m[3]]))
         }
         #[cfg(feature = "3d")]
-        (Value::Scalar(s), Value::Mat3(m)) => Ok(Value::Mat3(std::array::from_fn(|i| *s * m[i]))),
+        (Type::Scalar, Type::Mat3) => {
+            let s = left.as_scalar().unwrap();
+            let m = right.as_mat3().unwrap();
+            Ok(V::from_mat3(std::array::from_fn(|i| s * m[i])))
+        }
         #[cfg(feature = "4d")]
-        (Value::Scalar(s), Value::Mat4(m)) => Ok(Value::Mat4(std::array::from_fn(|i| *s * m[i]))),
+        (Type::Scalar, Type::Mat4) => {
+            let s = left.as_scalar().unwrap();
+            let m = right.as_mat4().unwrap();
+            Ok(V::from_mat4(std::array::from_fn(|i| s * m[i])))
+        }
 
         // Mat * Mat
-        (Value::Mat2(a), Value::Mat2(b)) => Ok(Value::Mat2(mat2_mul_mat2(a, b))),
+        (Type::Mat2, Type::Mat2) => {
+            let a = left.as_mat2().unwrap();
+            let b = right.as_mat2().unwrap();
+            Ok(V::from_mat2(mat2_mul_mat2(&a, &b)))
+        }
         #[cfg(feature = "3d")]
-        (Value::Mat3(a), Value::Mat3(b)) => Ok(Value::Mat3(mat3_mul_mat3(a, b))),
+        (Type::Mat3, Type::Mat3) => {
+            let a = left.as_mat3().unwrap();
+            let b = right.as_mat3().unwrap();
+            Ok(V::from_mat3(mat3_mul_mat3(&a, &b)))
+        }
         #[cfg(feature = "4d")]
-        (Value::Mat4(a), Value::Mat4(b)) => Ok(Value::Mat4(mat4_mul_mat4(a, b))),
+        (Type::Mat4, Type::Mat4) => {
+            let a = left.as_mat4().unwrap();
+            let b = right.as_mat4().unwrap();
+            Ok(V::from_mat4(mat4_mul_mat4(&a, &b)))
+        }
 
         _ => Err(Error::BinaryTypeMismatch {
             op: BinOp::Mul,
@@ -180,17 +307,35 @@ fn apply_mul<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Erro
 // Division (element-wise for vectors, scalar only for matrices)
 // ============================================================================
 
-fn apply_div<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Error> {
-    match (&left, &right) {
-        (Value::Scalar(a), Value::Scalar(b)) => Ok(Value::Scalar(*a / *b)),
+fn apply_div<T, V>(left: V, right: V) -> Result<V, Error>
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
+    match (left.typ(), right.typ()) {
+        (Type::Scalar, Type::Scalar) => {
+            let a = left.as_scalar().unwrap();
+            let b = right.as_scalar().unwrap();
+            Ok(V::from_scalar(a / b))
+        }
 
         // Vec / Scalar
-        (Value::Vec2(v), Value::Scalar(s)) => Ok(Value::Vec2([v[0] / *s, v[1] / *s])),
+        (Type::Vec2, Type::Scalar) => {
+            let v = left.as_vec2().unwrap();
+            let s = right.as_scalar().unwrap();
+            Ok(V::from_vec2([v[0] / s, v[1] / s]))
+        }
         #[cfg(feature = "3d")]
-        (Value::Vec3(v), Value::Scalar(s)) => Ok(Value::Vec3([v[0] / *s, v[1] / *s, v[2] / *s])),
+        (Type::Vec3, Type::Scalar) => {
+            let v = left.as_vec3().unwrap();
+            let s = right.as_scalar().unwrap();
+            Ok(V::from_vec3([v[0] / s, v[1] / s, v[2] / s]))
+        }
         #[cfg(feature = "4d")]
-        (Value::Vec4(v), Value::Scalar(s)) => {
-            Ok(Value::Vec4([v[0] / *s, v[1] / *s, v[2] / *s, v[3] / *s]))
+        (Type::Vec4, Type::Scalar) => {
+            let v = left.as_vec4().unwrap();
+            let s = right.as_scalar().unwrap();
+            Ok(V::from_vec4([v[0] / s, v[1] / s, v[2] / s, v[3] / s]))
         }
 
         _ => Err(Error::BinaryTypeMismatch {
@@ -205,9 +350,17 @@ fn apply_div<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Erro
 // Power (scalar only)
 // ============================================================================
 
-fn apply_pow<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Error> {
-    match (&left, &right) {
-        (Value::Scalar(a), Value::Scalar(b)) => Ok(Value::Scalar(a.powf(*b))),
+fn apply_pow<T, V>(left: V, right: V) -> Result<V, Error>
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
+    match (left.typ(), right.typ()) {
+        (Type::Scalar, Type::Scalar) => {
+            let a = left.as_scalar().unwrap();
+            let b = right.as_scalar().unwrap();
+            Ok(V::from_scalar(a.powf(b)))
+        }
         _ => Err(Error::BinaryTypeMismatch {
             op: BinOp::Pow,
             left: left.typ(),
@@ -220,19 +373,44 @@ fn apply_pow<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Erro
 // Negation
 // ============================================================================
 
-fn apply_neg<T: Float>(val: Value<T>) -> Result<Value<T>, Error> {
-    match val {
-        Value::Scalar(v) => Ok(Value::Scalar(-v)),
-        Value::Vec2(v) => Ok(Value::Vec2([-v[0], -v[1]])),
+fn apply_neg<T, V>(val: V) -> Result<V, Error>
+where
+    T: Float,
+    V: LinalgValue<T>,
+{
+    match val.typ() {
+        Type::Scalar => {
+            let v = val.as_scalar().unwrap();
+            Ok(V::from_scalar(-v))
+        }
+        Type::Vec2 => {
+            let v = val.as_vec2().unwrap();
+            Ok(V::from_vec2([-v[0], -v[1]]))
+        }
         #[cfg(feature = "3d")]
-        Value::Vec3(v) => Ok(Value::Vec3([-v[0], -v[1], -v[2]])),
+        Type::Vec3 => {
+            let v = val.as_vec3().unwrap();
+            Ok(V::from_vec3([-v[0], -v[1], -v[2]]))
+        }
         #[cfg(feature = "4d")]
-        Value::Vec4(v) => Ok(Value::Vec4([-v[0], -v[1], -v[2], -v[3]])),
-        Value::Mat2(m) => Ok(Value::Mat2([-m[0], -m[1], -m[2], -m[3]])),
+        Type::Vec4 => {
+            let v = val.as_vec4().unwrap();
+            Ok(V::from_vec4([-v[0], -v[1], -v[2], -v[3]]))
+        }
+        Type::Mat2 => {
+            let m = val.as_mat2().unwrap();
+            Ok(V::from_mat2([-m[0], -m[1], -m[2], -m[3]]))
+        }
         #[cfg(feature = "3d")]
-        Value::Mat3(m) => Ok(Value::Mat3(std::array::from_fn(|i| -m[i]))),
+        Type::Mat3 => {
+            let m = val.as_mat3().unwrap();
+            Ok(V::from_mat3(std::array::from_fn(|i| -m[i])))
+        }
         #[cfg(feature = "4d")]
-        Value::Mat4(m) => Ok(Value::Mat4(std::array::from_fn(|i| -m[i]))),
+        Type::Mat4 => {
+            let m = val.as_mat4().unwrap();
+            Ok(V::from_mat4(std::array::from_fn(|i| -m[i])))
+        }
     }
 }
 
@@ -340,6 +518,7 @@ fn mat4_mul_mat4<T: Float>(a: &[T; 16], b: &[T; 16]) -> [T; 16] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Value;
 
     #[test]
     fn test_mat2_mul_vec2() {
@@ -394,7 +573,7 @@ mod tests {
         // Ensure it works with f64 too
         let a: Value<f64> = Value::Vec2([1.0, 2.0]);
         let b: Value<f64> = Value::Vec2([3.0, 4.0]);
-        let result = apply_binop(BinOp::Add, a, b).unwrap();
+        let result = apply_binop::<f64, Value<f64>>(BinOp::Add, a, b).unwrap();
         assert_eq!(result, Value::Vec2([4.0, 6.0]));
     }
 }

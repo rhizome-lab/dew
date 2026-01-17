@@ -2,16 +2,16 @@
 //!
 //! Quaternion uses [x, y, z, w] order (scalar last).
 
-use crate::{Error, Value};
+use crate::{Error, QuaternionValue, Type};
 use num_traits::Float;
 use rhizome_dew_core::{BinOp, UnaryOp};
 
 /// Apply a binary operation to two values.
-pub fn apply_binop<T: Float>(
-    op: BinOp,
-    left: Value<T>,
-    right: Value<T>,
-) -> Result<Value<T>, Error> {
+pub fn apply_binop<T, V>(op: BinOp, left: V, right: V) -> Result<V, Error>
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
     match op {
         BinOp::Add => apply_add(left, right),
         BinOp::Sub => apply_sub(left, right),
@@ -22,18 +22,27 @@ pub fn apply_binop<T: Float>(
 }
 
 /// Apply a unary operation to a value.
-pub fn apply_unaryop<T: Float>(op: UnaryOp, val: Value<T>) -> Result<Value<T>, Error> {
+pub fn apply_unaryop<T, V>(op: UnaryOp, val: V) -> Result<V, Error>
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
     match op {
         UnaryOp::Neg => apply_neg(val),
         UnaryOp::Not => apply_not(val),
     }
 }
 
-fn apply_not<T: Float>(val: Value<T>) -> Result<Value<T>, Error> {
-    match val {
-        Value::Scalar(v) => {
+fn apply_not<T, V>(val: V) -> Result<V, Error>
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
+    match val.typ() {
+        Type::Scalar => {
+            let v = val.as_scalar().unwrap();
             let result = if v.is_zero() { T::one() } else { T::zero() };
-            Ok(Value::Scalar(result))
+            Ok(V::from_scalar(result))
         }
         _ => Err(Error::UnaryTypeMismatch {
             op: UnaryOp::Not,
@@ -46,20 +55,34 @@ fn apply_not<T: Float>(val: Value<T>) -> Result<Value<T>, Error> {
 // Addition
 // ============================================================================
 
-fn apply_add<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Error> {
-    match (&left, &right) {
-        (Value::Scalar(a), Value::Scalar(b)) => Ok(Value::Scalar(*a + *b)),
-
-        (Value::Vec3(a), Value::Vec3(b)) => {
-            Ok(Value::Vec3([a[0] + b[0], a[1] + b[1], a[2] + b[2]]))
+fn apply_add<T, V>(left: V, right: V) -> Result<V, Error>
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
+    match (left.typ(), right.typ()) {
+        (Type::Scalar, Type::Scalar) => {
+            let a = left.as_scalar().unwrap();
+            let b = right.as_scalar().unwrap();
+            Ok(V::from_scalar(a + b))
         }
 
-        (Value::Quaternion(a), Value::Quaternion(b)) => Ok(Value::Quaternion([
-            a[0] + b[0],
-            a[1] + b[1],
-            a[2] + b[2],
-            a[3] + b[3],
-        ])),
+        (Type::Vec3, Type::Vec3) => {
+            let a = left.as_vec3().unwrap();
+            let b = right.as_vec3().unwrap();
+            Ok(V::from_vec3([a[0] + b[0], a[1] + b[1], a[2] + b[2]]))
+        }
+
+        (Type::Quaternion, Type::Quaternion) => {
+            let a = left.as_quaternion().unwrap();
+            let b = right.as_quaternion().unwrap();
+            Ok(V::from_quaternion([
+                a[0] + b[0],
+                a[1] + b[1],
+                a[2] + b[2],
+                a[3] + b[3],
+            ]))
+        }
 
         _ => Err(Error::BinaryTypeMismatch {
             op: BinOp::Add,
@@ -73,20 +96,34 @@ fn apply_add<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Erro
 // Subtraction
 // ============================================================================
 
-fn apply_sub<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Error> {
-    match (&left, &right) {
-        (Value::Scalar(a), Value::Scalar(b)) => Ok(Value::Scalar(*a - *b)),
-
-        (Value::Vec3(a), Value::Vec3(b)) => {
-            Ok(Value::Vec3([a[0] - b[0], a[1] - b[1], a[2] - b[2]]))
+fn apply_sub<T, V>(left: V, right: V) -> Result<V, Error>
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
+    match (left.typ(), right.typ()) {
+        (Type::Scalar, Type::Scalar) => {
+            let a = left.as_scalar().unwrap();
+            let b = right.as_scalar().unwrap();
+            Ok(V::from_scalar(a - b))
         }
 
-        (Value::Quaternion(a), Value::Quaternion(b)) => Ok(Value::Quaternion([
-            a[0] - b[0],
-            a[1] - b[1],
-            a[2] - b[2],
-            a[3] - b[3],
-        ])),
+        (Type::Vec3, Type::Vec3) => {
+            let a = left.as_vec3().unwrap();
+            let b = right.as_vec3().unwrap();
+            Ok(V::from_vec3([a[0] - b[0], a[1] - b[1], a[2] - b[2]]))
+        }
+
+        (Type::Quaternion, Type::Quaternion) => {
+            let a = left.as_quaternion().unwrap();
+            let b = right.as_quaternion().unwrap();
+            Ok(V::from_quaternion([
+                a[0] - b[0],
+                a[1] - b[1],
+                a[2] - b[2],
+                a[3] - b[3],
+            ]))
+        }
 
         _ => Err(Error::BinaryTypeMismatch {
             op: BinOp::Sub,
@@ -100,28 +137,42 @@ fn apply_sub<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Erro
 // Multiplication
 // ============================================================================
 
-fn apply_mul<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Error> {
-    match (&left, &right) {
+fn apply_mul<T, V>(left: V, right: V) -> Result<V, Error>
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
+    match (left.typ(), right.typ()) {
         // Scalar * Scalar
-        (Value::Scalar(a), Value::Scalar(b)) => Ok(Value::Scalar(*a * *b)),
+        (Type::Scalar, Type::Scalar) => {
+            let a = left.as_scalar().unwrap();
+            let b = right.as_scalar().unwrap();
+            Ok(V::from_scalar(a * b))
+        }
 
         // Scalar * Vec3
-        (Value::Scalar(s), Value::Vec3(v)) => Ok(Value::Vec3([*s * v[0], *s * v[1], *s * v[2]])),
-        (Value::Vec3(v), Value::Scalar(s)) => Ok(Value::Vec3([v[0] * *s, v[1] * *s, v[2] * *s])),
+        (Type::Scalar, Type::Vec3) => {
+            let s = left.as_scalar().unwrap();
+            let v = right.as_vec3().unwrap();
+            Ok(V::from_vec3([s * v[0], s * v[1], s * v[2]]))
+        }
+        (Type::Vec3, Type::Scalar) => {
+            let v = left.as_vec3().unwrap();
+            let s = right.as_scalar().unwrap();
+            Ok(V::from_vec3([v[0] * s, v[1] * s, v[2] * s]))
+        }
 
         // Scalar * Quaternion
-        (Value::Scalar(s), Value::Quaternion(q)) => Ok(Value::Quaternion([
-            *s * q[0],
-            *s * q[1],
-            *s * q[2],
-            *s * q[3],
-        ])),
-        (Value::Quaternion(q), Value::Scalar(s)) => Ok(Value::Quaternion([
-            q[0] * *s,
-            q[1] * *s,
-            q[2] * *s,
-            q[3] * *s,
-        ])),
+        (Type::Scalar, Type::Quaternion) => {
+            let s = left.as_scalar().unwrap();
+            let q = right.as_quaternion().unwrap();
+            Ok(V::from_quaternion([s * q[0], s * q[1], s * q[2], s * q[3]]))
+        }
+        (Type::Quaternion, Type::Scalar) => {
+            let q = left.as_quaternion().unwrap();
+            let s = right.as_scalar().unwrap();
+            Ok(V::from_quaternion([q[0] * s, q[1] * s, q[2] * s, q[3] * s]))
+        }
 
         // Quaternion * Quaternion (Hamilton product)
         // q1 = [x1, y1, z1, w1], q2 = [x2, y2, z2, w2]
@@ -129,11 +180,13 @@ fn apply_mul<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Erro
         // result.x = w1*x2 + x1*w2 + y1*z2 - z1*y2
         // result.y = w1*y2 - x1*z2 + y1*w2 + z1*x2
         // result.z = w1*z2 + x1*y2 - y1*x2 + z1*w2
-        (Value::Quaternion(a), Value::Quaternion(b)) => {
+        (Type::Quaternion, Type::Quaternion) => {
+            let a = left.as_quaternion().unwrap();
+            let b = right.as_quaternion().unwrap();
             let (x1, y1, z1, w1) = (a[0], a[1], a[2], a[3]);
             let (x2, y2, z2, w2) = (b[0], b[1], b[2], b[3]);
 
-            Ok(Value::Quaternion([
+            Ok(V::from_quaternion([
                 w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2, // x
                 w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2, // y
                 w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2, // z
@@ -143,7 +196,11 @@ fn apply_mul<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Erro
 
         // Quaternion * Vec3 (rotate vector)
         // v' = q * v * q^(-1), but we use the optimized formula
-        (Value::Quaternion(q), Value::Vec3(v)) => Ok(Value::Vec3(rotate_vec3_by_quat(v, q))),
+        (Type::Quaternion, Type::Vec3) => {
+            let q = left.as_quaternion().unwrap();
+            let v = right.as_vec3().unwrap();
+            Ok(V::from_vec3(rotate_vec3_by_quat(&v, &q)))
+        }
 
         _ => Err(Error::BinaryTypeMismatch {
             op: BinOp::Mul,
@@ -176,18 +233,29 @@ fn rotate_vec3_by_quat<T: Float>(v: &[T; 3], q: &[T; 4]) -> [T; 3] {
 // Division
 // ============================================================================
 
-fn apply_div<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Error> {
-    match (&left, &right) {
-        (Value::Scalar(a), Value::Scalar(b)) => Ok(Value::Scalar(*a / *b)),
+fn apply_div<T, V>(left: V, right: V) -> Result<V, Error>
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
+    match (left.typ(), right.typ()) {
+        (Type::Scalar, Type::Scalar) => {
+            let a = left.as_scalar().unwrap();
+            let b = right.as_scalar().unwrap();
+            Ok(V::from_scalar(a / b))
+        }
 
-        (Value::Vec3(v), Value::Scalar(s)) => Ok(Value::Vec3([v[0] / *s, v[1] / *s, v[2] / *s])),
+        (Type::Vec3, Type::Scalar) => {
+            let v = left.as_vec3().unwrap();
+            let s = right.as_scalar().unwrap();
+            Ok(V::from_vec3([v[0] / s, v[1] / s, v[2] / s]))
+        }
 
-        (Value::Quaternion(q), Value::Scalar(s)) => Ok(Value::Quaternion([
-            q[0] / *s,
-            q[1] / *s,
-            q[2] / *s,
-            q[3] / *s,
-        ])),
+        (Type::Quaternion, Type::Scalar) => {
+            let q = left.as_quaternion().unwrap();
+            let s = right.as_scalar().unwrap();
+            Ok(V::from_quaternion([q[0] / s, q[1] / s, q[2] / s, q[3] / s]))
+        }
 
         _ => Err(Error::BinaryTypeMismatch {
             op: BinOp::Div,
@@ -201,9 +269,17 @@ fn apply_div<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Erro
 // Power
 // ============================================================================
 
-fn apply_pow<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Error> {
-    match (&left, &right) {
-        (Value::Scalar(a), Value::Scalar(b)) => Ok(Value::Scalar(a.powf(*b))),
+fn apply_pow<T, V>(left: V, right: V) -> Result<V, Error>
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
+    match (left.typ(), right.typ()) {
+        (Type::Scalar, Type::Scalar) => {
+            let a = left.as_scalar().unwrap();
+            let b = right.as_scalar().unwrap();
+            Ok(V::from_scalar(a.powf(b)))
+        }
 
         _ => Err(Error::BinaryTypeMismatch {
             op: BinOp::Pow,
@@ -217,11 +293,24 @@ fn apply_pow<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Erro
 // Negation
 // ============================================================================
 
-fn apply_neg<T: Float>(val: Value<T>) -> Result<Value<T>, Error> {
-    match val {
-        Value::Scalar(v) => Ok(Value::Scalar(-v)),
-        Value::Vec3(v) => Ok(Value::Vec3([-v[0], -v[1], -v[2]])),
-        Value::Quaternion(q) => Ok(Value::Quaternion([-q[0], -q[1], -q[2], -q[3]])),
+fn apply_neg<T, V>(val: V) -> Result<V, Error>
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
+    match val.typ() {
+        Type::Scalar => {
+            let v = val.as_scalar().unwrap();
+            Ok(V::from_scalar(-v))
+        }
+        Type::Vec3 => {
+            let v = val.as_vec3().unwrap();
+            Ok(V::from_vec3([-v[0], -v[1], -v[2]]))
+        }
+        Type::Quaternion => {
+            let q = val.as_quaternion().unwrap();
+            Ok(V::from_quaternion([-q[0], -q[1], -q[2], -q[3]]))
+        }
     }
 }
 
@@ -232,6 +321,7 @@ fn apply_neg<T: Float>(val: Value<T>) -> Result<Value<T>, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Value;
 
     fn approx_eq(a: f32, b: f32) -> bool {
         (a - b).abs() < 0.0001

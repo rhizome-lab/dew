@@ -1,15 +1,15 @@
 //! Binary and unary operations for complex numbers.
 
-use crate::{Error, Value};
+use crate::{ComplexValue, Error, Type};
 use num_traits::Float;
 use rhizome_dew_core::{BinOp, UnaryOp};
 
 /// Apply a binary operation to two values.
-pub fn apply_binop<T: Float>(
-    op: BinOp,
-    left: Value<T>,
-    right: Value<T>,
-) -> Result<Value<T>, Error> {
+pub fn apply_binop<T, V>(op: BinOp, left: V, right: V) -> Result<V, Error>
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
     match op {
         BinOp::Add => apply_add(left, right),
         BinOp::Sub => apply_sub(left, right),
@@ -20,7 +20,11 @@ pub fn apply_binop<T: Float>(
 }
 
 /// Apply a unary operation to a value.
-pub fn apply_unaryop<T: Float>(op: UnaryOp, val: Value<T>) -> Result<Value<T>, Error> {
+pub fn apply_unaryop<T, V>(op: UnaryOp, val: V) -> Result<V, Error>
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
     match op {
         UnaryOp::Neg => apply_neg(val),
         UnaryOp::Not => apply_not(val),
@@ -31,19 +35,39 @@ pub fn apply_unaryop<T: Float>(op: UnaryOp, val: Value<T>) -> Result<Value<T>, E
 // Addition
 // ============================================================================
 
-fn apply_add<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Error> {
-    match (&left, &right) {
+fn apply_add<T, V>(left: V, right: V) -> Result<V, Error>
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
+    match (left.typ(), right.typ()) {
         // Scalar + Scalar
-        (Value::Scalar(a), Value::Scalar(b)) => Ok(Value::Scalar(*a + *b)),
+        (Type::Scalar, Type::Scalar) => {
+            let a = left.as_scalar().unwrap();
+            let b = right.as_scalar().unwrap();
+            Ok(V::from_scalar(a + b))
+        }
 
         // Complex + Complex
-        (Value::Complex(a), Value::Complex(b)) => Ok(Value::Complex([a[0] + b[0], a[1] + b[1]])),
+        (Type::Complex, Type::Complex) => {
+            let a = left.as_complex().unwrap();
+            let b = right.as_complex().unwrap();
+            Ok(V::from_complex([a[0] + b[0], a[1] + b[1]]))
+        }
 
         // Scalar + Complex (promote scalar to complex)
-        (Value::Scalar(s), Value::Complex(c)) => Ok(Value::Complex([*s + c[0], c[1]])),
+        (Type::Scalar, Type::Complex) => {
+            let s = left.as_scalar().unwrap();
+            let c = right.as_complex().unwrap();
+            Ok(V::from_complex([s + c[0], c[1]]))
+        }
 
         // Complex + Scalar
-        (Value::Complex(c), Value::Scalar(s)) => Ok(Value::Complex([c[0] + *s, c[1]])),
+        (Type::Complex, Type::Scalar) => {
+            let c = left.as_complex().unwrap();
+            let s = right.as_scalar().unwrap();
+            Ok(V::from_complex([c[0] + s, c[1]]))
+        }
     }
 }
 
@@ -51,15 +75,35 @@ fn apply_add<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Erro
 // Subtraction
 // ============================================================================
 
-fn apply_sub<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Error> {
-    match (&left, &right) {
-        (Value::Scalar(a), Value::Scalar(b)) => Ok(Value::Scalar(*a - *b)),
+fn apply_sub<T, V>(left: V, right: V) -> Result<V, Error>
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
+    match (left.typ(), right.typ()) {
+        (Type::Scalar, Type::Scalar) => {
+            let a = left.as_scalar().unwrap();
+            let b = right.as_scalar().unwrap();
+            Ok(V::from_scalar(a - b))
+        }
 
-        (Value::Complex(a), Value::Complex(b)) => Ok(Value::Complex([a[0] - b[0], a[1] - b[1]])),
+        (Type::Complex, Type::Complex) => {
+            let a = left.as_complex().unwrap();
+            let b = right.as_complex().unwrap();
+            Ok(V::from_complex([a[0] - b[0], a[1] - b[1]]))
+        }
 
-        (Value::Scalar(s), Value::Complex(c)) => Ok(Value::Complex([*s - c[0], -c[1]])),
+        (Type::Scalar, Type::Complex) => {
+            let s = left.as_scalar().unwrap();
+            let c = right.as_complex().unwrap();
+            Ok(V::from_complex([s - c[0], -c[1]]))
+        }
 
-        (Value::Complex(c), Value::Scalar(s)) => Ok(Value::Complex([c[0] - *s, c[1]])),
+        (Type::Complex, Type::Scalar) => {
+            let c = left.as_complex().unwrap();
+            let s = right.as_scalar().unwrap();
+            Ok(V::from_complex([c[0] - s, c[1]]))
+        }
     }
 }
 
@@ -67,23 +111,41 @@ fn apply_sub<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Erro
 // Multiplication
 // ============================================================================
 
-fn apply_mul<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Error> {
-    match (&left, &right) {
+fn apply_mul<T, V>(left: V, right: V) -> Result<V, Error>
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
+    match (left.typ(), right.typ()) {
         // Scalar * Scalar
-        (Value::Scalar(a), Value::Scalar(b)) => Ok(Value::Scalar(*a * *b)),
+        (Type::Scalar, Type::Scalar) => {
+            let a = left.as_scalar().unwrap();
+            let b = right.as_scalar().unwrap();
+            Ok(V::from_scalar(a * b))
+        }
 
         // Complex * Complex: (a + bi)(c + di) = (ac - bd) + (ad + bc)i
-        (Value::Complex(a), Value::Complex(b)) => {
+        (Type::Complex, Type::Complex) => {
+            let a = left.as_complex().unwrap();
+            let b = right.as_complex().unwrap();
             let re = a[0] * b[0] - a[1] * b[1];
             let im = a[0] * b[1] + a[1] * b[0];
-            Ok(Value::Complex([re, im]))
+            Ok(V::from_complex([re, im]))
         }
 
         // Scalar * Complex
-        (Value::Scalar(s), Value::Complex(c)) => Ok(Value::Complex([*s * c[0], *s * c[1]])),
+        (Type::Scalar, Type::Complex) => {
+            let s = left.as_scalar().unwrap();
+            let c = right.as_complex().unwrap();
+            Ok(V::from_complex([s * c[0], s * c[1]]))
+        }
 
         // Complex * Scalar
-        (Value::Complex(c), Value::Scalar(s)) => Ok(Value::Complex([c[0] * *s, c[1] * *s])),
+        (Type::Complex, Type::Scalar) => {
+            let c = left.as_complex().unwrap();
+            let s = right.as_scalar().unwrap();
+            Ok(V::from_complex([c[0] * s, c[1] * s]))
+        }
     }
 }
 
@@ -91,30 +153,46 @@ fn apply_mul<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Erro
 // Division
 // ============================================================================
 
-fn apply_div<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Error> {
-    match (&left, &right) {
+fn apply_div<T, V>(left: V, right: V) -> Result<V, Error>
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
+    match (left.typ(), right.typ()) {
         // Scalar / Scalar
-        (Value::Scalar(a), Value::Scalar(b)) => Ok(Value::Scalar(*a / *b)),
+        (Type::Scalar, Type::Scalar) => {
+            let a = left.as_scalar().unwrap();
+            let b = right.as_scalar().unwrap();
+            Ok(V::from_scalar(a / b))
+        }
 
         // Complex / Complex: (a + bi) / (c + di) = ((ac + bd) + (bc - ad)i) / (c² + d²)
-        (Value::Complex(a), Value::Complex(b)) => {
+        (Type::Complex, Type::Complex) => {
+            let a = left.as_complex().unwrap();
+            let b = right.as_complex().unwrap();
             let denom = b[0] * b[0] + b[1] * b[1];
             let re = (a[0] * b[0] + a[1] * b[1]) / denom;
             let im = (a[1] * b[0] - a[0] * b[1]) / denom;
-            Ok(Value::Complex([re, im]))
+            Ok(V::from_complex([re, im]))
         }
 
         // Scalar / Complex
-        (Value::Scalar(s), Value::Complex(c)) => {
+        (Type::Scalar, Type::Complex) => {
             // s / (a + bi) = s(a - bi) / (a² + b²)
+            let s = left.as_scalar().unwrap();
+            let c = right.as_complex().unwrap();
             let denom = c[0] * c[0] + c[1] * c[1];
-            let re = *s * c[0] / denom;
-            let im = -*s * c[1] / denom;
-            Ok(Value::Complex([re, im]))
+            let re = s * c[0] / denom;
+            let im = -s * c[1] / denom;
+            Ok(V::from_complex([re, im]))
         }
 
         // Complex / Scalar
-        (Value::Complex(c), Value::Scalar(s)) => Ok(Value::Complex([c[0] / *s, c[1] / *s])),
+        (Type::Complex, Type::Scalar) => {
+            let c = left.as_complex().unwrap();
+            let s = right.as_scalar().unwrap();
+            Ok(V::from_complex([c[0] / s, c[1] / s]))
+        }
     }
 }
 
@@ -122,19 +200,29 @@ fn apply_div<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Erro
 // Power
 // ============================================================================
 
-fn apply_pow<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Error> {
-    match (&left, &right) {
+fn apply_pow<T, V>(left: V, right: V) -> Result<V, Error>
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
+    match (left.typ(), right.typ()) {
         // Scalar ^ Scalar
-        (Value::Scalar(a), Value::Scalar(b)) => Ok(Value::Scalar(a.powf(*b))),
+        (Type::Scalar, Type::Scalar) => {
+            let a = left.as_scalar().unwrap();
+            let b = right.as_scalar().unwrap();
+            Ok(V::from_scalar(a.powf(b)))
+        }
 
         // Complex ^ Scalar (integer-ish powers common)
         // z^n = r^n * e^(i*n*θ) where z = r*e^(iθ)
-        (Value::Complex(c), Value::Scalar(n)) => {
+        (Type::Complex, Type::Scalar) => {
+            let c = left.as_complex().unwrap();
+            let n = right.as_scalar().unwrap();
             let r = (c[0] * c[0] + c[1] * c[1]).sqrt();
             let theta = c[1].atan2(c[0]);
-            let r_n = r.powf(*n);
-            let theta_n = theta * *n;
-            Ok(Value::Complex([r_n * theta_n.cos(), r_n * theta_n.sin()]))
+            let r_n = r.powf(n);
+            let theta_n = theta * n;
+            Ok(V::from_complex([r_n * theta_n.cos(), r_n * theta_n.sin()]))
         }
 
         // Other cases not supported for now
@@ -150,10 +238,20 @@ fn apply_pow<T: Float>(left: Value<T>, right: Value<T>) -> Result<Value<T>, Erro
 // Negation
 // ============================================================================
 
-fn apply_neg<T: Float>(val: Value<T>) -> Result<Value<T>, Error> {
-    match val {
-        Value::Scalar(v) => Ok(Value::Scalar(-v)),
-        Value::Complex(c) => Ok(Value::Complex([-c[0], -c[1]])),
+fn apply_neg<T, V>(val: V) -> Result<V, Error>
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
+    match val.typ() {
+        Type::Scalar => {
+            let v = val.as_scalar().unwrap();
+            Ok(V::from_scalar(-v))
+        }
+        Type::Complex => {
+            let c = val.as_complex().unwrap();
+            Ok(V::from_complex([-c[0], -c[1]]))
+        }
     }
 }
 
@@ -161,15 +259,22 @@ fn apply_neg<T: Float>(val: Value<T>) -> Result<Value<T>, Error> {
 // Logical Not
 // ============================================================================
 
-fn apply_not<T: Float>(val: Value<T>) -> Result<Value<T>, Error> {
-    match val {
-        Value::Scalar(v) => Ok(Value::Scalar(if v == T::zero() {
-            T::one()
-        } else {
-            T::zero()
-        })),
+fn apply_not<T, V>(val: V) -> Result<V, Error>
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
+    match val.typ() {
+        Type::Scalar => {
+            let v = val.as_scalar().unwrap();
+            Ok(V::from_scalar(if v == T::zero() {
+                T::one()
+            } else {
+                T::zero()
+            }))
+        }
         // not doesn't make sense for complex
-        Value::Complex(_) => Err(crate::Error::TypeMismatch {
+        Type::Complex => Err(crate::Error::TypeMismatch {
             expected: crate::Type::Scalar,
             got: crate::Type::Complex,
         }),
@@ -183,6 +288,7 @@ fn apply_not<T: Float>(val: Value<T>) -> Result<Value<T>, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Value;
 
     #[test]
     fn test_complex_mul() {

@@ -79,7 +79,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 mod funcs;
-mod ops;
+pub mod ops;
 #[cfg(test)]
 mod parity_tests;
 
@@ -314,7 +314,13 @@ pub struct Signature {
 }
 
 /// A function that can be called from quaternion expressions.
-pub trait QuaternionFn<T>: Send + Sync {
+///
+/// Generic over both the numeric type `T` and the value type `V`.
+pub trait QuaternionFn<T, V>: Send + Sync
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
     /// Function name.
     fn name(&self) -> &str;
 
@@ -322,16 +328,24 @@ pub trait QuaternionFn<T>: Send + Sync {
     fn signatures(&self) -> Vec<Signature>;
 
     /// Call the function with typed arguments.
-    fn call(&self, args: &[Value<T>]) -> Value<T>;
+    fn call(&self, args: &[V]) -> V;
 }
 
 /// Registry of quaternion functions.
 #[derive(Clone)]
-pub struct FunctionRegistry<T> {
-    funcs: HashMap<String, Arc<dyn QuaternionFn<T>>>,
+pub struct FunctionRegistry<T, V>
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
+    funcs: HashMap<String, Arc<dyn QuaternionFn<T, V>>>,
 }
 
-impl<T> Default for FunctionRegistry<T> {
+impl<T, V> Default for FunctionRegistry<T, V>
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
     fn default() -> Self {
         Self {
             funcs: HashMap::new(),
@@ -339,16 +353,20 @@ impl<T> Default for FunctionRegistry<T> {
     }
 }
 
-impl<T> FunctionRegistry<T> {
+impl<T, V> FunctionRegistry<T, V>
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn register<F: QuaternionFn<T> + 'static>(&mut self, func: F) {
+    pub fn register<F: QuaternionFn<T, V> + 'static>(&mut self, func: F) {
         self.funcs.insert(func.name().to_string(), Arc::new(func));
     }
 
-    pub fn get(&self, name: &str) -> Option<&Arc<dyn QuaternionFn<T>>> {
+    pub fn get(&self, name: &str) -> Option<&Arc<dyn QuaternionFn<T, V>>> {
         self.funcs.get(name)
     }
 }
@@ -358,13 +376,19 @@ impl<T> FunctionRegistry<T> {
 // ============================================================================
 
 /// Evaluate an AST with quaternion values.
-pub fn eval<T: Float>(
+///
+/// Generic over both the numeric type `T` and the value type `V`.
+pub fn eval<T, V>(
     ast: &Ast,
-    vars: &HashMap<String, Value<T>>,
-    funcs: &FunctionRegistry<T>,
-) -> Result<Value<T>, Error> {
+    vars: &HashMap<String, V>,
+    funcs: &FunctionRegistry<T, V>,
+) -> Result<V, Error>
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
     match ast {
-        Ast::Num(n) => Ok(Value::Scalar(T::from(*n).unwrap())),
+        Ast::Num(n) => Ok(V::from_scalar(T::from(*n).unwrap())),
 
         Ast::Var(name) => vars
             .get(name)
@@ -387,7 +411,7 @@ pub fn eval<T: Float>(
                 .get(name)
                 .ok_or_else(|| Error::UnknownFunction(name.clone()))?;
 
-            let arg_vals: Vec<Value<T>> = args
+            let arg_vals: Vec<V> = args
                 .iter()
                 .map(|a| eval(a, vars, funcs))
                 .collect::<Result<_, _>>()?;
@@ -414,17 +438,17 @@ pub fn eval<T: Float>(
         Ast::Compare(op, left, right) => {
             let left_val = eval(left, vars, funcs)?;
             let right_val = eval(right, vars, funcs)?;
-            match (&left_val, &right_val) {
-                (Value::Scalar(l), Value::Scalar(r)) => {
+            match (left_val.as_scalar(), right_val.as_scalar()) {
+                (Some(l), Some(r)) => {
                     let result = match op {
-                        CompareOp::Lt => *l < *r,
-                        CompareOp::Le => *l <= *r,
-                        CompareOp::Gt => *l > *r,
-                        CompareOp::Ge => *l >= *r,
-                        CompareOp::Eq => *l == *r,
-                        CompareOp::Ne => *l != *r,
+                        CompareOp::Lt => l < r,
+                        CompareOp::Le => l <= r,
+                        CompareOp::Gt => l > r,
+                        CompareOp::Ge => l >= r,
+                        CompareOp::Eq => l == r,
+                        CompareOp::Ne => l != r,
                     };
-                    Ok(Value::Scalar(if result { T::one() } else { T::zero() }))
+                    Ok(V::from_scalar(if result { T::one() } else { T::zero() }))
                 }
                 _ => Err(Error::UnsupportedTypeForConditional(left_val.typ())),
             }
@@ -433,10 +457,10 @@ pub fn eval<T: Float>(
         Ast::And(left, right) => {
             let left_val = eval(left, vars, funcs)?;
             let right_val = eval(right, vars, funcs)?;
-            match (&left_val, &right_val) {
-                (Value::Scalar(l), Value::Scalar(r)) => {
+            match (left_val.as_scalar(), right_val.as_scalar()) {
+                (Some(l), Some(r)) => {
                     let result = !l.is_zero() && !r.is_zero();
-                    Ok(Value::Scalar(if result { T::one() } else { T::zero() }))
+                    Ok(V::from_scalar(if result { T::one() } else { T::zero() }))
                 }
                 _ => Err(Error::UnsupportedTypeForConditional(left_val.typ())),
             }
@@ -445,10 +469,10 @@ pub fn eval<T: Float>(
         Ast::Or(left, right) => {
             let left_val = eval(left, vars, funcs)?;
             let right_val = eval(right, vars, funcs)?;
-            match (&left_val, &right_val) {
-                (Value::Scalar(l), Value::Scalar(r)) => {
+            match (left_val.as_scalar(), right_val.as_scalar()) {
+                (Some(l), Some(r)) => {
                     let result = !l.is_zero() || !r.is_zero();
-                    Ok(Value::Scalar(if result { T::one() } else { T::zero() }))
+                    Ok(V::from_scalar(if result { T::one() } else { T::zero() }))
                 }
                 _ => Err(Error::UnsupportedTypeForConditional(left_val.typ())),
             }
@@ -456,15 +480,14 @@ pub fn eval<T: Float>(
 
         Ast::If(cond, then_ast, else_ast) => {
             let cond_val = eval(cond, vars, funcs)?;
-            match cond_val {
-                Value::Scalar(c) => {
-                    if !c.is_zero() {
-                        eval(then_ast, vars, funcs)
-                    } else {
-                        eval(else_ast, vars, funcs)
-                    }
+            if let Some(c) = cond_val.as_scalar() {
+                if !c.is_zero() {
+                    eval(then_ast, vars, funcs)
+                } else {
+                    eval(else_ast, vars, funcs)
                 }
-                _ => Err(Error::UnsupportedTypeForConditional(cond_val.typ())),
+            } else {
+                Err(Error::UnsupportedTypeForConditional(cond_val.typ()))
             }
         }
     }

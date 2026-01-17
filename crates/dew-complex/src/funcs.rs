@@ -1,6 +1,6 @@
 //! Complex number functions: conj, abs, arg, exp, log, etc.
 
-use crate::{ComplexFn, FunctionRegistry, Signature, Type, Value};
+use crate::{ComplexFn, ComplexValue, FunctionRegistry, Signature, Type, Value};
 use num_traits::Float;
 
 // ============================================================================
@@ -10,7 +10,11 @@ use num_traits::Float;
 /// Extract real part: re(z) -> scalar
 pub struct Re;
 
-impl<T: Float> ComplexFn<T> for Re {
+impl<T, V> ComplexFn<T, V> for Re
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
     fn name(&self) -> &str {
         "re"
     }
@@ -22,11 +26,9 @@ impl<T: Float> ComplexFn<T> for Re {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match &args[0] {
-            Value::Complex(c) => Value::Scalar(c[0]),
-            _ => unreachable!(),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let c = args[0].as_complex().unwrap();
+        V::from_scalar(c[0])
     }
 }
 
@@ -37,7 +39,11 @@ impl<T: Float> ComplexFn<T> for Re {
 /// Extract imaginary part: im(z) -> scalar
 pub struct Im;
 
-impl<T: Float> ComplexFn<T> for Im {
+impl<T, V> ComplexFn<T, V> for Im
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
     fn name(&self) -> &str {
         "im"
     }
@@ -49,11 +55,9 @@ impl<T: Float> ComplexFn<T> for Im {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match &args[0] {
-            Value::Complex(c) => Value::Scalar(c[1]),
-            _ => unreachable!(),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let c = args[0].as_complex().unwrap();
+        V::from_scalar(c[1])
     }
 }
 
@@ -64,7 +68,11 @@ impl<T: Float> ComplexFn<T> for Im {
 /// Complex conjugate: conj(a + bi) = a - bi
 pub struct Conj;
 
-impl<T: Float> ComplexFn<T> for Conj {
+impl<T, V> ComplexFn<T, V> for Conj
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
     fn name(&self) -> &str {
         "conj"
     }
@@ -76,11 +84,9 @@ impl<T: Float> ComplexFn<T> for Conj {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match &args[0] {
-            Value::Complex(c) => Value::Complex([c[0], -c[1]]),
-            _ => unreachable!(),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let c = args[0].as_complex().unwrap();
+        V::from_complex([c[0], -c[1]])
     }
 }
 
@@ -91,7 +97,11 @@ impl<T: Float> ComplexFn<T> for Conj {
 /// Magnitude: abs(z) = sqrt(re² + im²)
 pub struct Abs;
 
-impl<T: Float> ComplexFn<T> for Abs {
+impl<T, V> ComplexFn<T, V> for Abs
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
     fn name(&self) -> &str {
         "abs"
     }
@@ -109,10 +119,16 @@ impl<T: Float> ComplexFn<T> for Abs {
         ]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match &args[0] {
-            Value::Scalar(s) => Value::Scalar(s.abs()),
-            Value::Complex(c) => Value::Scalar((c[0] * c[0] + c[1] * c[1]).sqrt()),
+    fn call(&self, args: &[V]) -> V {
+        match args[0].typ() {
+            Type::Scalar => {
+                let s = args[0].as_scalar().unwrap();
+                V::from_scalar(s.abs())
+            }
+            Type::Complex => {
+                let c = args[0].as_complex().unwrap();
+                V::from_scalar((c[0] * c[0] + c[1] * c[1]).sqrt())
+            }
         }
     }
 }
@@ -124,7 +140,11 @@ impl<T: Float> ComplexFn<T> for Abs {
 /// Phase angle: arg(z) = atan2(im, re)
 pub struct Arg;
 
-impl<T: Float> ComplexFn<T> for Arg {
+impl<T, V> ComplexFn<T, V> for Arg
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
     fn name(&self) -> &str {
         "arg"
     }
@@ -136,11 +156,9 @@ impl<T: Float> ComplexFn<T> for Arg {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match &args[0] {
-            Value::Complex(c) => Value::Scalar(c[1].atan2(c[0])),
-            _ => unreachable!(),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let c = args[0].as_complex().unwrap();
+        V::from_scalar(c[1].atan2(c[0]))
     }
 }
 
@@ -151,7 +169,11 @@ impl<T: Float> ComplexFn<T> for Arg {
 /// Squared magnitude: norm(z) = re² + im²
 pub struct Norm;
 
-impl<T: Float> ComplexFn<T> for Norm {
+impl<T, V> ComplexFn<T, V> for Norm
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
     fn name(&self) -> &str {
         "norm"
     }
@@ -163,11 +185,9 @@ impl<T: Float> ComplexFn<T> for Norm {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match &args[0] {
-            Value::Complex(c) => Value::Scalar(c[0] * c[0] + c[1] * c[1]),
-            _ => unreachable!(),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let c = args[0].as_complex().unwrap();
+        V::from_scalar(c[0] * c[0] + c[1] * c[1])
     }
 }
 
@@ -178,7 +198,11 @@ impl<T: Float> ComplexFn<T> for Norm {
 /// Complex exponential: exp(a + bi) = e^a * (cos(b) + i*sin(b))
 pub struct Exp;
 
-impl<T: Float> ComplexFn<T> for Exp {
+impl<T, V> ComplexFn<T, V> for Exp
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
     fn name(&self) -> &str {
         "exp"
     }
@@ -196,12 +220,16 @@ impl<T: Float> ComplexFn<T> for Exp {
         ]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match &args[0] {
-            Value::Scalar(s) => Value::Scalar(s.exp()),
-            Value::Complex(c) => {
+    fn call(&self, args: &[V]) -> V {
+        match args[0].typ() {
+            Type::Scalar => {
+                let s = args[0].as_scalar().unwrap();
+                V::from_scalar(s.exp())
+            }
+            Type::Complex => {
+                let c = args[0].as_complex().unwrap();
                 let e_a = c[0].exp();
-                Value::Complex([e_a * c[1].cos(), e_a * c[1].sin()])
+                V::from_complex([e_a * c[1].cos(), e_a * c[1].sin()])
             }
         }
     }
@@ -214,7 +242,11 @@ impl<T: Float> ComplexFn<T> for Exp {
 /// Complex logarithm: log(z) = ln|z| + i*arg(z)
 pub struct Log;
 
-impl<T: Float> ComplexFn<T> for Log {
+impl<T, V> ComplexFn<T, V> for Log
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
     fn name(&self) -> &str {
         "log"
     }
@@ -232,13 +264,17 @@ impl<T: Float> ComplexFn<T> for Log {
         ]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match &args[0] {
-            Value::Scalar(s) => Value::Scalar(s.ln()),
-            Value::Complex(c) => {
+    fn call(&self, args: &[V]) -> V {
+        match args[0].typ() {
+            Type::Scalar => {
+                let s = args[0].as_scalar().unwrap();
+                V::from_scalar(s.ln())
+            }
+            Type::Complex => {
+                let c = args[0].as_complex().unwrap();
                 let r = (c[0] * c[0] + c[1] * c[1]).sqrt();
                 let theta = c[1].atan2(c[0]);
-                Value::Complex([r.ln(), theta])
+                V::from_complex([r.ln(), theta])
             }
         }
     }
@@ -251,7 +287,11 @@ impl<T: Float> ComplexFn<T> for Log {
 /// Complex square root
 pub struct Sqrt;
 
-impl<T: Float> ComplexFn<T> for Sqrt {
+impl<T, V> ComplexFn<T, V> for Sqrt
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
     fn name(&self) -> &str {
         "sqrt"
     }
@@ -269,16 +309,20 @@ impl<T: Float> ComplexFn<T> for Sqrt {
         ]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match &args[0] {
-            Value::Scalar(s) => Value::Scalar(s.sqrt()),
-            Value::Complex(c) => {
+    fn call(&self, args: &[V]) -> V {
+        match args[0].typ() {
+            Type::Scalar => {
+                let s = args[0].as_scalar().unwrap();
+                V::from_scalar(s.sqrt())
+            }
+            Type::Complex => {
                 // sqrt(z) = sqrt(r) * e^(i*θ/2)
+                let c = args[0].as_complex().unwrap();
                 let r = (c[0] * c[0] + c[1] * c[1]).sqrt();
                 let theta = c[1].atan2(c[0]);
                 let sqrt_r = r.sqrt();
                 let half_theta = theta / T::from(2.0).unwrap();
-                Value::Complex([sqrt_r * half_theta.cos(), sqrt_r * half_theta.sin()])
+                V::from_complex([sqrt_r * half_theta.cos(), sqrt_r * half_theta.sin()])
             }
         }
     }
@@ -291,7 +335,11 @@ impl<T: Float> ComplexFn<T> for Sqrt {
 /// Complex power: pow(z, w) = exp(w * log(z))
 pub struct Pow;
 
-impl<T: Float> ComplexFn<T> for Pow {
+impl<T, V> ComplexFn<T, V> for Pow
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
     fn name(&self) -> &str {
         "pow"
     }
@@ -313,19 +361,27 @@ impl<T: Float> ComplexFn<T> for Pow {
         ]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1]) {
-            (Value::Scalar(a), Value::Scalar(b)) => Value::Scalar(a.powf(*b)),
-            (Value::Complex(z), Value::Scalar(n)) => {
+    fn call(&self, args: &[V]) -> V {
+        match (args[0].typ(), args[1].typ()) {
+            (Type::Scalar, Type::Scalar) => {
+                let a = args[0].as_scalar().unwrap();
+                let b = args[1].as_scalar().unwrap();
+                V::from_scalar(a.powf(b))
+            }
+            (Type::Complex, Type::Scalar) => {
                 // z^n = r^n * e^(i*n*θ)
+                let z = args[0].as_complex().unwrap();
+                let n = args[1].as_scalar().unwrap();
                 let r = (z[0] * z[0] + z[1] * z[1]).sqrt();
                 let theta = z[1].atan2(z[0]);
-                let r_n = r.powf(*n);
-                let theta_n = theta * *n;
-                Value::Complex([r_n * theta_n.cos(), r_n * theta_n.sin()])
+                let r_n = r.powf(n);
+                let theta_n = theta * n;
+                V::from_complex([r_n * theta_n.cos(), r_n * theta_n.sin()])
             }
-            (Value::Complex(z), Value::Complex(w)) => {
+            (Type::Complex, Type::Complex) => {
                 // z^w = exp(w * log(z))
+                let z = args[0].as_complex().unwrap();
+                let w = args[1].as_complex().unwrap();
                 let r = (z[0] * z[0] + z[1] * z[1]).sqrt();
                 let theta = z[1].atan2(z[0]);
                 let ln_r = r.ln();
@@ -335,7 +391,7 @@ impl<T: Float> ComplexFn<T> for Pow {
                 let im = w[0] * theta + w[1] * ln_r;
                 // exp(re + im*i)
                 let e_re = re.exp();
-                Value::Complex([e_re * im.cos(), e_re * im.sin()])
+                V::from_complex([e_re * im.cos(), e_re * im.sin()])
             }
             _ => unreachable!(),
         }
@@ -349,7 +405,11 @@ impl<T: Float> ComplexFn<T> for Pow {
 /// Construct from polar: polar(r, θ) = r * e^(iθ) = r*cos(θ) + i*r*sin(θ)
 pub struct Polar;
 
-impl<T: Float> ComplexFn<T> for Polar {
+impl<T, V> ComplexFn<T, V> for Polar
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
     fn name(&self) -> &str {
         "polar"
     }
@@ -361,13 +421,10 @@ impl<T: Float> ComplexFn<T> for Polar {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1]) {
-            (Value::Scalar(r), Value::Scalar(theta)) => {
-                Value::Complex([*r * theta.cos(), *r * theta.sin()])
-            }
-            _ => unreachable!(),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let r = args[0].as_scalar().unwrap();
+        let theta = args[1].as_scalar().unwrap();
+        V::from_complex([r * theta.cos(), r * theta.sin()])
     }
 }
 
@@ -378,7 +435,11 @@ impl<T: Float> ComplexFn<T> for Polar {
 /// Construct from cartesian: complex(re, im) = re + im*i
 pub struct Complex;
 
-impl<T: Float> ComplexFn<T> for Complex {
+impl<T, V> ComplexFn<T, V> for Complex
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
     fn name(&self) -> &str {
         "complex"
     }
@@ -390,11 +451,10 @@ impl<T: Float> ComplexFn<T> for Complex {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1]) {
-            (Value::Scalar(re), Value::Scalar(im)) => Value::Complex([*re, *im]),
-            _ => unreachable!(),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let re = args[0].as_scalar().unwrap();
+        let im = args[1].as_scalar().unwrap();
+        V::from_complex([re, im])
     }
 }
 
@@ -403,7 +463,11 @@ impl<T: Float> ComplexFn<T> for Complex {
 // ============================================================================
 
 /// Register all standard complex functions.
-pub fn register_complex<T: Float + 'static>(registry: &mut FunctionRegistry<T>) {
+pub fn register_complex<T, V>(registry: &mut FunctionRegistry<T, V>)
+where
+    T: Float + 'static,
+    V: ComplexValue<T> + 'static,
+{
     registry.register(Re);
     registry.register(Im);
     registry.register(Conj);
@@ -419,7 +483,10 @@ pub fn register_complex<T: Float + 'static>(registry: &mut FunctionRegistry<T>) 
 }
 
 /// Create a new registry with all standard complex functions.
-pub fn complex_registry<T: Float + 'static>() -> FunctionRegistry<T> {
+pub fn complex_registry<T: Float + 'static>() -> FunctionRegistry<T, Value<T>>
+where
+    T: std::fmt::Debug,
+{
     let mut registry = FunctionRegistry::new();
     register_complex(&mut registry);
     registry

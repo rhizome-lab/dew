@@ -2,7 +2,7 @@
 //!
 //! Quaternion uses [x, y, z, w] order (scalar last).
 
-use crate::{FunctionRegistry, QuaternionFn, Signature, Type, Value};
+use crate::{FunctionRegistry, QuaternionFn, QuaternionValue, Signature, Type, Value};
 use num_traits::Float;
 
 // ============================================================================
@@ -12,7 +12,11 @@ use num_traits::Float;
 /// Quaternion conjugate: conj([x, y, z, w]) = [-x, -y, -z, w]
 pub struct Conj;
 
-impl<T: Float> QuaternionFn<T> for Conj {
+impl<T, V> QuaternionFn<T, V> for Conj
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
     fn name(&self) -> &str {
         "conj"
     }
@@ -24,11 +28,9 @@ impl<T: Float> QuaternionFn<T> for Conj {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match &args[0] {
-            Value::Quaternion(q) => Value::Quaternion([-q[0], -q[1], -q[2], q[3]]),
-            _ => unreachable!(),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let q = args[0].as_quaternion().unwrap();
+        V::from_quaternion([-q[0], -q[1], -q[2], q[3]])
     }
 }
 
@@ -39,7 +41,11 @@ impl<T: Float> QuaternionFn<T> for Conj {
 /// Quaternion magnitude: length(q) = sqrt(x² + y² + z² + w²)
 pub struct Length;
 
-impl<T: Float> QuaternionFn<T> for Length {
+impl<T, V> QuaternionFn<T, V> for Length
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
     fn name(&self) -> &str {
         "length"
     }
@@ -57,11 +63,15 @@ impl<T: Float> QuaternionFn<T> for Length {
         ]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match &args[0] {
-            Value::Vec3(v) => Value::Scalar((v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt()),
-            Value::Quaternion(q) => {
-                Value::Scalar((q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]).sqrt())
+    fn call(&self, args: &[V]) -> V {
+        match args[0].typ() {
+            Type::Vec3 => {
+                let v = args[0].as_vec3().unwrap();
+                V::from_scalar((v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt())
+            }
+            Type::Quaternion => {
+                let q = args[0].as_quaternion().unwrap();
+                V::from_scalar((q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]).sqrt())
             }
             _ => unreachable!(),
         }
@@ -75,7 +85,11 @@ impl<T: Float> QuaternionFn<T> for Length {
 /// Normalize to unit quaternion/vector
 pub struct Normalize;
 
-impl<T: Float> QuaternionFn<T> for Normalize {
+impl<T, V> QuaternionFn<T, V> for Normalize
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
     fn name(&self) -> &str {
         "normalize"
     }
@@ -93,15 +107,17 @@ impl<T: Float> QuaternionFn<T> for Normalize {
         ]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match &args[0] {
-            Value::Vec3(v) => {
+    fn call(&self, args: &[V]) -> V {
+        match args[0].typ() {
+            Type::Vec3 => {
+                let v = args[0].as_vec3().unwrap();
                 let len = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
-                Value::Vec3([v[0] / len, v[1] / len, v[2] / len])
+                V::from_vec3([v[0] / len, v[1] / len, v[2] / len])
             }
-            Value::Quaternion(q) => {
+            Type::Quaternion => {
+                let q = args[0].as_quaternion().unwrap();
                 let len = (q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]).sqrt();
-                Value::Quaternion([q[0] / len, q[1] / len, q[2] / len, q[3] / len])
+                V::from_quaternion([q[0] / len, q[1] / len, q[2] / len, q[3] / len])
             }
             _ => unreachable!(),
         }
@@ -116,7 +132,11 @@ impl<T: Float> QuaternionFn<T> for Normalize {
 /// For unit quaternions, inverse = conjugate
 pub struct Inverse;
 
-impl<T: Float> QuaternionFn<T> for Inverse {
+impl<T, V> QuaternionFn<T, V> for Inverse
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
     fn name(&self) -> &str {
         "inverse"
     }
@@ -128,19 +148,15 @@ impl<T: Float> QuaternionFn<T> for Inverse {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match &args[0] {
-            Value::Quaternion(q) => {
-                let norm_sq = q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3];
-                Value::Quaternion([
-                    -q[0] / norm_sq,
-                    -q[1] / norm_sq,
-                    -q[2] / norm_sq,
-                    q[3] / norm_sq,
-                ])
-            }
-            _ => unreachable!(),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let q = args[0].as_quaternion().unwrap();
+        let norm_sq = q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3];
+        V::from_quaternion([
+            -q[0] / norm_sq,
+            -q[1] / norm_sq,
+            -q[2] / norm_sq,
+            q[3] / norm_sq,
+        ])
     }
 }
 
@@ -151,7 +167,11 @@ impl<T: Float> QuaternionFn<T> for Inverse {
 /// Dot product (4D for quaternions, 3D for vectors)
 pub struct Dot;
 
-impl<T: Float> QuaternionFn<T> for Dot {
+impl<T, V> QuaternionFn<T, V> for Dot
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
     fn name(&self) -> &str {
         "dot"
     }
@@ -169,13 +189,17 @@ impl<T: Float> QuaternionFn<T> for Dot {
         ]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1]) {
-            (Value::Vec3(a), Value::Vec3(b)) => {
-                Value::Scalar(a[0] * b[0] + a[1] * b[1] + a[2] * b[2])
+    fn call(&self, args: &[V]) -> V {
+        match (args[0].typ(), args[1].typ()) {
+            (Type::Vec3, Type::Vec3) => {
+                let a = args[0].as_vec3().unwrap();
+                let b = args[1].as_vec3().unwrap();
+                V::from_scalar(a[0] * b[0] + a[1] * b[1] + a[2] * b[2])
             }
-            (Value::Quaternion(a), Value::Quaternion(b)) => {
-                Value::Scalar(a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3])
+            (Type::Quaternion, Type::Quaternion) => {
+                let a = args[0].as_quaternion().unwrap();
+                let b = args[1].as_quaternion().unwrap();
+                V::from_scalar(a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3])
             }
             _ => unreachable!(),
         }
@@ -189,7 +213,11 @@ impl<T: Float> QuaternionFn<T> for Dot {
 /// Linear interpolation (use slerp for rotations)
 pub struct Lerp;
 
-impl<T: Float> QuaternionFn<T> for Lerp {
+impl<T, V> QuaternionFn<T, V> for Lerp
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
     fn name(&self) -> &str {
         "lerp"
     }
@@ -207,19 +235,28 @@ impl<T: Float> QuaternionFn<T> for Lerp {
         ]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1], &args[2]) {
-            (Value::Vec3(a), Value::Vec3(b), Value::Scalar(t)) => Value::Vec3([
-                a[0] + (b[0] - a[0]) * *t,
-                a[1] + (b[1] - a[1]) * *t,
-                a[2] + (b[2] - a[2]) * *t,
-            ]),
-            (Value::Quaternion(a), Value::Quaternion(b), Value::Scalar(t)) => Value::Quaternion([
-                a[0] + (b[0] - a[0]) * *t,
-                a[1] + (b[1] - a[1]) * *t,
-                a[2] + (b[2] - a[2]) * *t,
-                a[3] + (b[3] - a[3]) * *t,
-            ]),
+    fn call(&self, args: &[V]) -> V {
+        let t = args[2].as_scalar().unwrap();
+        match (args[0].typ(), args[1].typ()) {
+            (Type::Vec3, Type::Vec3) => {
+                let a = args[0].as_vec3().unwrap();
+                let b = args[1].as_vec3().unwrap();
+                V::from_vec3([
+                    a[0] + (b[0] - a[0]) * t,
+                    a[1] + (b[1] - a[1]) * t,
+                    a[2] + (b[2] - a[2]) * t,
+                ])
+            }
+            (Type::Quaternion, Type::Quaternion) => {
+                let a = args[0].as_quaternion().unwrap();
+                let b = args[1].as_quaternion().unwrap();
+                V::from_quaternion([
+                    a[0] + (b[0] - a[0]) * t,
+                    a[1] + (b[1] - a[1]) * t,
+                    a[2] + (b[2] - a[2]) * t,
+                    a[3] + (b[3] - a[3]) * t,
+                ])
+            }
             _ => unreachable!(),
         }
     }
@@ -232,7 +269,11 @@ impl<T: Float> QuaternionFn<T> for Lerp {
 /// Spherical linear interpolation for quaternions
 pub struct Slerp;
 
-impl<T: Float> QuaternionFn<T> for Slerp {
+impl<T, V> QuaternionFn<T, V> for Slerp
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
     fn name(&self) -> &str {
         "slerp"
     }
@@ -244,13 +285,11 @@ impl<T: Float> QuaternionFn<T> for Slerp {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1], &args[2]) {
-            (Value::Quaternion(a), Value::Quaternion(b), Value::Scalar(t)) => {
-                Value::Quaternion(slerp_impl(a, b, *t))
-            }
-            _ => unreachable!(),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let a = args[0].as_quaternion().unwrap();
+        let b = args[1].as_quaternion().unwrap();
+        let t = args[2].as_scalar().unwrap();
+        V::from_quaternion(slerp_impl(&a, &b, t))
     }
 }
 
@@ -316,7 +355,11 @@ fn slerp_impl<T: Float>(a: &[T; 4], b: &[T; 4], t: T) -> [T; 4] {
 /// Create quaternion from axis and angle: axis_angle(axis, angle)
 pub struct AxisAngle;
 
-impl<T: Float> QuaternionFn<T> for AxisAngle {
+impl<T, V> QuaternionFn<T, V> for AxisAngle
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
     fn name(&self) -> &str {
         "axis_angle"
     }
@@ -328,18 +371,15 @@ impl<T: Float> QuaternionFn<T> for AxisAngle {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1]) {
-            (Value::Vec3(axis), Value::Scalar(angle)) => {
-                let half_angle = *angle / T::from(2.0).unwrap();
-                let s = half_angle.sin();
-                let c = half_angle.cos();
-                // Normalize axis
-                let len = (axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]).sqrt();
-                Value::Quaternion([axis[0] / len * s, axis[1] / len * s, axis[2] / len * s, c])
-            }
-            _ => unreachable!(),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let axis = args[0].as_vec3().unwrap();
+        let angle = args[1].as_scalar().unwrap();
+        let half_angle = angle / T::from(2.0).unwrap();
+        let s = half_angle.sin();
+        let c = half_angle.cos();
+        // Normalize axis
+        let len = (axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]).sqrt();
+        V::from_quaternion([axis[0] / len * s, axis[1] / len * s, axis[2] / len * s, c])
     }
 }
 
@@ -350,7 +390,11 @@ impl<T: Float> QuaternionFn<T> for AxisAngle {
 /// Rotate a vector by a quaternion: rotate(vec, quat)
 pub struct Rotate;
 
-impl<T: Float> QuaternionFn<T> for Rotate {
+impl<T, V> QuaternionFn<T, V> for Rotate
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
     fn name(&self) -> &str {
         "rotate"
     }
@@ -362,11 +406,10 @@ impl<T: Float> QuaternionFn<T> for Rotate {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1]) {
-            (Value::Vec3(v), Value::Quaternion(q)) => Value::Vec3(rotate_vec3_by_quat(v, q)),
-            _ => unreachable!(),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let v = args[0].as_vec3().unwrap();
+        let q = args[1].as_quaternion().unwrap();
+        V::from_vec3(rotate_vec3_by_quat(&v, &q))
     }
 }
 
@@ -395,7 +438,11 @@ fn rotate_vec3_by_quat<T: Float>(v: &[T; 3], q: &[T; 4]) -> [T; 3] {
 /// Construct Vec3 from three scalars: vec3(x, y, z) -> Vec3
 pub struct Vec3Constructor;
 
-impl<T: Float> QuaternionFn<T> for Vec3Constructor {
+impl<T, V> QuaternionFn<T, V> for Vec3Constructor
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
     fn name(&self) -> &str {
         "vec3"
     }
@@ -407,11 +454,11 @@ impl<T: Float> QuaternionFn<T> for Vec3Constructor {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1], &args[2]) {
-            (Value::Scalar(x), Value::Scalar(y), Value::Scalar(z)) => Value::Vec3([*x, *y, *z]),
-            _ => unreachable!(),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let x = args[0].as_scalar().unwrap();
+        let y = args[1].as_scalar().unwrap();
+        let z = args[2].as_scalar().unwrap();
+        V::from_vec3([x, y, z])
     }
 }
 
@@ -423,7 +470,11 @@ impl<T: Float> QuaternionFn<T> for Vec3Constructor {
 /// Uses [x, y, z, w] order (scalar last, matching GLM/glTF convention).
 pub struct QuatConstructor;
 
-impl<T: Float> QuaternionFn<T> for QuatConstructor {
+impl<T, V> QuaternionFn<T, V> for QuatConstructor
+where
+    T: Float,
+    V: QuaternionValue<T>,
+{
     fn name(&self) -> &str {
         "quat"
     }
@@ -435,13 +486,12 @@ impl<T: Float> QuaternionFn<T> for QuatConstructor {
         }]
     }
 
-    fn call(&self, args: &[Value<T>]) -> Value<T> {
-        match (&args[0], &args[1], &args[2], &args[3]) {
-            (Value::Scalar(x), Value::Scalar(y), Value::Scalar(z), Value::Scalar(w)) => {
-                Value::Quaternion([*x, *y, *z, *w])
-            }
-            _ => unreachable!(),
-        }
+    fn call(&self, args: &[V]) -> V {
+        let x = args[0].as_scalar().unwrap();
+        let y = args[1].as_scalar().unwrap();
+        let z = args[2].as_scalar().unwrap();
+        let w = args[3].as_scalar().unwrap();
+        V::from_quaternion([x, y, z, w])
     }
 }
 
@@ -450,7 +500,11 @@ impl<T: Float> QuaternionFn<T> for QuatConstructor {
 // ============================================================================
 
 /// Register all standard quaternion functions.
-pub fn register_quaternion<T: Float + 'static>(registry: &mut FunctionRegistry<T>) {
+pub fn register_quaternion<T, V>(registry: &mut FunctionRegistry<T, V>)
+where
+    T: Float + 'static,
+    V: QuaternionValue<T> + 'static,
+{
     registry.register(Conj);
     registry.register(Length);
     registry.register(Normalize);
@@ -465,7 +519,10 @@ pub fn register_quaternion<T: Float + 'static>(registry: &mut FunctionRegistry<T
 }
 
 /// Create a new registry with all standard quaternion functions.
-pub fn quaternion_registry<T: Float + 'static>() -> FunctionRegistry<T> {
+pub fn quaternion_registry<T: Float + 'static>() -> FunctionRegistry<T, Value<T>>
+where
+    T: std::fmt::Debug,
+{
     let mut registry = FunctionRegistry::new();
     register_quaternion(&mut registry);
     registry

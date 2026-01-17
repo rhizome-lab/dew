@@ -680,6 +680,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rhizome-dew-all"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "rhizome-dew-complex",
+ "rhizome-dew-core",
+ "rhizome-dew-linalg",
+ "rhizome-dew-quaternion",
+ "rhizome-dew-scalar",
+]
+
+[[package]]
 name = "rhizome-dew-complex"
 version = "0.1.0"
 dependencies = [

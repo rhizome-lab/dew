@@ -71,7 +71,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 mod funcs;
-mod ops;
+pub mod ops;
 #[cfg(test)]
 mod parity_tests;
 
@@ -280,7 +280,13 @@ pub struct Signature {
 }
 
 /// A function that can be called from complex expressions.
-pub trait ComplexFn<T>: Send + Sync {
+///
+/// Generic over both the numeric type `T` and the value type `V`.
+pub trait ComplexFn<T, V>: Send + Sync
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
     /// Function name.
     fn name(&self) -> &str;
 
@@ -288,16 +294,24 @@ pub trait ComplexFn<T>: Send + Sync {
     fn signatures(&self) -> Vec<Signature>;
 
     /// Call the function with typed arguments.
-    fn call(&self, args: &[Value<T>]) -> Value<T>;
+    fn call(&self, args: &[V]) -> V;
 }
 
 /// Registry of complex functions.
 #[derive(Clone)]
-pub struct FunctionRegistry<T> {
-    funcs: HashMap<String, Arc<dyn ComplexFn<T>>>,
+pub struct FunctionRegistry<T, V>
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
+    funcs: HashMap<String, Arc<dyn ComplexFn<T, V>>>,
 }
 
-impl<T> Default for FunctionRegistry<T> {
+impl<T, V> Default for FunctionRegistry<T, V>
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
     fn default() -> Self {
         Self {
             funcs: HashMap::new(),
@@ -305,16 +319,20 @@ impl<T> Default for FunctionRegistry<T> {
     }
 }
 
-impl<T> FunctionRegistry<T> {
+impl<T, V> FunctionRegistry<T, V>
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn register<F: ComplexFn<T> + 'static>(&mut self, func: F) {
+    pub fn register<F: ComplexFn<T, V> + 'static>(&mut self, func: F) {
         self.funcs.insert(func.name().to_string(), Arc::new(func));
     }
 
-    pub fn get(&self, name: &str) -> Option<&Arc<dyn ComplexFn<T>>> {
+    pub fn get(&self, name: &str) -> Option<&Arc<dyn ComplexFn<T, V>>> {
         self.funcs.get(name)
     }
 }
@@ -324,13 +342,19 @@ impl<T> FunctionRegistry<T> {
 // ============================================================================
 
 /// Evaluate an AST with complex values.
-pub fn eval<T: Float>(
+///
+/// Generic over both the numeric type `T` and the value type `V`.
+pub fn eval<T, V>(
     ast: &Ast,
-    vars: &HashMap<String, Value<T>>,
-    funcs: &FunctionRegistry<T>,
-) -> Result<Value<T>, Error> {
+    vars: &HashMap<String, V>,
+    funcs: &FunctionRegistry<T, V>,
+) -> Result<V, Error>
+where
+    T: Float,
+    V: ComplexValue<T>,
+{
     match ast {
-        Ast::Num(n) => Ok(Value::Scalar(T::from(*n).unwrap())),
+        Ast::Num(n) => Ok(V::from_scalar(T::from(*n).unwrap())),
 
         Ast::Var(name) => vars
             .get(name)
@@ -352,8 +376,8 @@ pub fn eval<T: Float>(
             let left_val = eval(left, vars, funcs)?;
             let right_val = eval(right, vars, funcs)?;
             // Comparisons only supported for scalars
-            match (left_val, right_val) {
-                (Value::Scalar(l), Value::Scalar(r)) => {
+            match (left_val.as_scalar(), right_val.as_scalar()) {
+                (Some(l), Some(r)) => {
                     let result = match op {
                         CompareOp::Lt => l < r,
                         CompareOp::Le => l <= r,
@@ -362,7 +386,7 @@ pub fn eval<T: Float>(
                         CompareOp::Eq => l == r,
                         CompareOp::Ne => l != r,
                     };
-                    Ok(Value::Scalar(if result { T::one() } else { T::zero() }))
+                    Ok(V::from_scalar(if result { T::one() } else { T::zero() }))
                 }
                 _ => Err(Error::TypeMismatch {
                     expected: Type::Scalar,
@@ -373,13 +397,13 @@ pub fn eval<T: Float>(
 
         Ast::And(left, right) => {
             let left_val = eval(left, vars, funcs)?;
-            if let Value::Scalar(l) = left_val {
+            if let Some(l) = left_val.as_scalar() {
                 if l == T::zero() {
-                    return Ok(Value::Scalar(T::zero()));
+                    return Ok(V::from_scalar(T::zero()));
                 }
                 let right_val = eval(right, vars, funcs)?;
-                if let Value::Scalar(r) = right_val {
-                    Ok(Value::Scalar(if r != T::zero() {
+                if let Some(r) = right_val.as_scalar() {
+                    Ok(V::from_scalar(if r != T::zero() {
                         T::one()
                     } else {
                         T::zero()
@@ -400,13 +424,13 @@ pub fn eval<T: Float>(
 
         Ast::Or(left, right) => {
             let left_val = eval(left, vars, funcs)?;
-            if let Value::Scalar(l) = left_val {
+            if let Some(l) = left_val.as_scalar() {
                 if l != T::zero() {
-                    return Ok(Value::Scalar(T::one()));
+                    return Ok(V::from_scalar(T::one()));
                 }
                 let right_val = eval(right, vars, funcs)?;
-                if let Value::Scalar(r) = right_val {
-                    Ok(Value::Scalar(if r != T::zero() {
+                if let Some(r) = right_val.as_scalar() {
+                    Ok(V::from_scalar(if r != T::zero() {
                         T::one()
                     } else {
                         T::zero()
@@ -427,7 +451,7 @@ pub fn eval<T: Float>(
 
         Ast::If(cond, then_expr, else_expr) => {
             let cond_val = eval(cond, vars, funcs)?;
-            if let Value::Scalar(c) = cond_val {
+            if let Some(c) = cond_val.as_scalar() {
                 if c != T::zero() {
                     eval(then_expr, vars, funcs)
                 } else {
@@ -446,7 +470,7 @@ pub fn eval<T: Float>(
                 .get(name)
                 .ok_or_else(|| Error::UnknownFunction(name.clone()))?;
 
-            let arg_vals: Vec<Value<T>> = args
+            let arg_vals: Vec<V> = args
                 .iter()
                 .map(|a| eval(a, vars, funcs))
                 .collect::<Result<_, _>>()?;

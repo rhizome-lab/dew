@@ -16,6 +16,7 @@ rhizome-dew-scalar = { path = "crates/dew-scalar" }
 rhizome-dew-linalg = { path = "crates/dew-linalg" }
 rhizome-dew-complex = { path = "crates/dew-complex" }
 rhizome-dew-quaternion = { path = "crates/dew-quaternion" }
+rhizome-dew-all = { path = "crates/dew-all" }
 
 # Root package for examples
 [package]
