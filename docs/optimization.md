@@ -196,39 +196,60 @@ impl ExprFn for Log10 {
 
 ## Domain Extensions
 
-Domain crates can provide additional optimization passes:
+Domain crates provide additional optimization passes for their types:
+
+### dew-scalar (feature = "optimize")
+
+`ScalarConstantFolding` evaluates scalar functions at compile time:
 
 ```rust
-// In dew-linalg
-pub struct LinalgOptimizations;
+use rhizome_dew_core::optimize::{optimize, standard_passes};
+use rhizome_dew_scalar::optimize::ScalarConstantFolding;
 
-impl Pass for LinalgOptimizations {
-    fn transform(&self, ast: &Ast) -> Option<Ast> {
-        match ast {
-            // dot(v, v) → length_squared(v)
-            Ast::Call(name, args) if name == "dot" && args.len() == 2 => {
-                if args[0] == args[1] {
-                    Some(Ast::Call("length_squared".into(), vec![args[0].clone()]))
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        }
-    }
-}
+let mut passes = standard_passes();
+passes.push(&ScalarConstantFolding);
+
+// sin(0) + cos(0) → 0 + 1 → 1
 ```
 
-Usage:
+Supported: all standard math functions (sin, cos, sqrt, exp, log, etc.)
+
+### dew-linalg (feature = "optimize")
+
+`LinalgConstantFolding` evaluates vector operations at compile time:
+
 ```rust
-use rhizome_dew_core::{optimize, optimize::standard_passes};
-use rhizome_dew_linalg::LinalgOptimizations;
+use rhizome_dew_core::optimize::{optimize, standard_passes};
+use rhizome_dew_linalg::optimize::LinalgConstantFolding;
 
-let passes: Vec<&dyn Pass> = standard_passes()
-    .chain(std::iter::once(&LinalgOptimizations as &dyn Pass))
-    .collect();
+let mut passes = standard_passes();
+passes.push(&LinalgConstantFolding);
 
-let optimized = optimize(ast, &passes);
+// vec2(1, 2) + vec2(3, 4) → vec2(4, 6)
+// dot(vec2(1, 0), vec2(0, 1)) → 0
+// length(vec2(3, 4)) → 5
+```
+
+**Current limitation**: Uses constructor-based type inference. Only folds operations
+where vector types are visible in the AST (e.g., `vec2(...)` calls). Operations on
+typed variables like `a + b` where `a, b: Vec3` are not yet optimized.
+
+### Custom Passes
+
+Implement the `Pass` trait for domain-specific optimizations:
+
+```rust
+use rhizome_dew_core::optimize::Pass;
+use rhizome_dew_core::Ast;
+
+pub struct MyDomainOptimizations;
+
+impl Pass for MyDomainOptimizations {
+    fn transform(&self, ast: &Ast) -> Option<Ast> {
+        // Your optimization logic here
+        None
+    }
+}
 ```
 
 ## CSE Utilities

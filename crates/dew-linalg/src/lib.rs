@@ -94,6 +94,9 @@ pub mod lua;
 #[cfg(feature = "cranelift")]
 pub mod cranelift;
 
+#[cfg(feature = "optimize")]
+pub mod optimize;
+
 #[cfg(feature = "3d")]
 pub use funcs::Cross;
 pub use funcs::{
