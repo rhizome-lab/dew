@@ -120,7 +120,7 @@ Let bindings:
 - Evaluate and return the body expression
 - Support shadowing (inner bindings hide outer ones)
 
-**Backend note:** WGSL and GLSL backends do not support `let` expressions directly. Use the optimizer to inline let bindings before codegen. Lua and Cranelift fully support `let`.
+**Backend note:** WGSL and GLSL backends require let bindings to be inlined first. The `LetInlining` pass (included in `standard_passes()`) handles this automatically. Lua and Cranelift support `let` directly.
 
 ## Conditionals (feature = "cond")
 
@@ -255,6 +255,7 @@ Available passes:
 - **ConstantFolding**: Evaluates `1 + 2` → `3`
 - **AlgebraicIdentities**: Eliminates `x * 1`, `x + 0`, etc.
 - **PowerReduction**: Converts `x ^ 2` → `x * x`
+- **LetInlining**: Inlines let bindings: `let a = 3; a * 2` → `6`
 - **FunctionDecomposition**: Uses `ExprFn::decompose()` to expand functions
 
 See the [Optimization Guide](/optimization) for details.

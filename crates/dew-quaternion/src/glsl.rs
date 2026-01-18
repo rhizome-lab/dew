@@ -22,6 +22,8 @@ pub enum GlslError {
     UnsupportedTypeForConditional(Type),
     /// Operation not supported for this type.
     UnsupportedOperation(&'static str),
+    /// Feature not supported in expression-only codegen.
+    UnsupportedFeature(String),
 }
 
 impl std::fmt::Display for GlslError {
@@ -37,6 +39,9 @@ impl std::fmt::Display for GlslError {
             }
             GlslError::UnsupportedOperation(op) => {
                 write!(f, "unsupported operation for quaternion: {op}")
+            }
+            GlslError::UnsupportedFeature(feat) => {
+                write!(f, "unsupported feature in expression codegen: {feat}")
             }
         }
     }
@@ -159,6 +164,14 @@ pub fn emit_glsl(ast: &Ast, var_types: &HashMap<String, Type>) -> Result<GlslExp
                 code: cond::emit_if(&cond_bool, &then_expr.code, &else_expr.code),
                 typ: then_expr.typ,
             })
+        }
+
+        Ast::Let { .. } => {
+            // Let bindings require statement-based codegen.
+            // Use the LetInlining optimization pass before emitting.
+            Err(GlslError::UnsupportedFeature(
+                "let bindings (use LetInlining pass first)".to_string(),
+            ))
         }
     }
 }

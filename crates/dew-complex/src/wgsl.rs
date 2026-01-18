@@ -21,6 +21,8 @@ pub enum WgslError {
     UnsupportedTypeForConditional(Type),
     /// Operation not supported for this type.
     UnsupportedOperation(&'static str),
+    /// Feature not supported in expression-only codegen.
+    UnsupportedFeature(String),
 }
 
 impl std::fmt::Display for WgslError {
@@ -36,6 +38,9 @@ impl std::fmt::Display for WgslError {
             }
             WgslError::UnsupportedOperation(op) => {
                 write!(f, "unsupported operation for complex: {op}")
+            }
+            WgslError::UnsupportedFeature(feat) => {
+                write!(f, "unsupported feature in expression codegen: {feat}")
             }
         }
     }
@@ -159,6 +164,14 @@ pub fn emit_wgsl(ast: &Ast, var_types: &HashMap<String, Type>) -> Result<WgslExp
                 .map(|a| emit_wgsl(a, var_types))
                 .collect::<Result<_, _>>()?;
             emit_function_call(name, arg_exprs)
+        }
+
+        Ast::Let { .. } => {
+            // Let bindings require statement-based codegen.
+            // Use the LetInlining optimization pass before emitting.
+            Err(WgslError::UnsupportedFeature(
+                "let bindings (use LetInlining pass first)".to_string(),
+            ))
         }
     }
 }

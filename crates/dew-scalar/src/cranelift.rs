@@ -719,6 +719,16 @@ fn compile_ast(
 
             compile_function(name, &arg_vals, builder, math)
         }
+
+        Ast::Let { name, value, body } => {
+            // Compile the value expression
+            let value_val = compile_ast(value, builder, vars, math)?;
+            // Extend vars with the new binding
+            let mut new_vars = vars.clone();
+            new_vars.insert(name.clone(), value_val);
+            // Compile the body with extended environment
+            compile_ast(body, builder, &new_vars, math)
+        }
     }
 }
 
@@ -1024,6 +1034,16 @@ fn compile_ast_int(
                 .collect::<Result<_, _>>()?;
 
             compile_function_int(name, &arg_vals, builder, math)
+        }
+
+        Ast::Let { name, value, body } => {
+            // Compile the value expression
+            let value_val = compile_ast_int(value, builder, vars, math)?;
+            // Extend vars with the new binding
+            let mut new_vars = vars.clone();
+            new_vars.insert(name.clone(), value_val);
+            // Compile the body with extended environment
+            compile_ast_int(body, builder, &new_vars, math)
         }
     }
 }

@@ -188,11 +188,17 @@ fn transform_children(ast: &Ast, passes: &[&dyn Pass]) -> Ast {
 /// - [`ConstantFolding`]
 /// - [`AlgebraicIdentities`]
 /// - [`PowerReduction`]
+/// - [`LetInlining`]
 ///
 /// Note: [`FunctionDecomposition`] is not included because it requires a
 /// [`FunctionRegistry`]. Use [`standard_passes_with_funcs`] if you need it.
 pub fn standard_passes() -> Vec<&'static dyn Pass> {
-    vec![&ConstantFolding, &AlgebraicIdentities, &PowerReduction]
+    vec![
+        &ConstantFolding,
+        &AlgebraicIdentities,
+        &PowerReduction,
+        &LetInlining,
+    ]
 }
 
 /// Returns standard passes plus function decomposition.
@@ -212,6 +218,7 @@ pub fn standard_passes_with_funcs(registry: &FunctionRegistry) -> Vec<Box<dyn Pa
         Box::new(ConstantFolding),
         Box::new(AlgebraicIdentities),
         Box::new(PowerReduction),
+        Box::new(LetInlining),
         Box::new(FunctionDecomposition::new(registry)),
     ]
 }
@@ -558,6 +565,170 @@ impl Pass for PowerReduction {
 }
 
 // ============================================================================
+// LetInlining pass
+// ============================================================================
+
+/// Inlines let bindings when safe and beneficial.
+///
+/// | Before | After | Condition |
+/// |--------|-------|-----------|
+/// | `let a = 3; a * 2` | `3 * 2` | Value is literal |
+/// | `let a = x; a + y` | `x + y` | Value is variable |
+/// | `let a = expr; a` | `expr` | Single use in body |
+/// | `let a = expr; a + a` | kept | Multiple uses, non-trivial value |
+///
+/// This pass enables WGSL/GLSL codegen by eliminating let expressions.
+pub struct LetInlining;
+
+impl LetInlining {
+    /// Count occurrences of a variable name in an AST.
+    fn count_uses(ast: &Ast, name: &str) -> usize {
+        match ast {
+            Ast::Num(_) => 0,
+            Ast::Var(v) => {
+                if v == name {
+                    1
+                } else {
+                    0
+                }
+            }
+            Ast::BinOp(_, left, right) => {
+                Self::count_uses(left, name) + Self::count_uses(right, name)
+            }
+            Ast::UnaryOp(_, inner) => Self::count_uses(inner, name),
+            #[cfg(feature = "func")]
+            Ast::Call(_, args) => args.iter().map(|a| Self::count_uses(a, name)).sum(),
+            #[cfg(feature = "cond")]
+            Ast::Compare(_, left, right) => {
+                Self::count_uses(left, name) + Self::count_uses(right, name)
+            }
+            #[cfg(feature = "cond")]
+            Ast::And(left, right) => Self::count_uses(left, name) + Self::count_uses(right, name),
+            #[cfg(feature = "cond")]
+            Ast::Or(left, right) => Self::count_uses(left, name) + Self::count_uses(right, name),
+            #[cfg(feature = "cond")]
+            Ast::If(cond, then_expr, else_expr) => {
+                Self::count_uses(cond, name)
+                    + Self::count_uses(then_expr, name)
+                    + Self::count_uses(else_expr, name)
+            }
+            Ast::Let {
+                name: bound,
+                value,
+                body,
+            } => {
+                let in_value = Self::count_uses(value, name);
+                // If this let shadows the name, don't count uses in body
+                if bound == name {
+                    in_value
+                } else {
+                    in_value + Self::count_uses(body, name)
+                }
+            }
+        }
+    }
+
+    /// Substitute all occurrences of a variable with a replacement AST.
+    fn substitute(ast: &Ast, name: &str, replacement: &Ast) -> Ast {
+        match ast {
+            Ast::Num(n) => Ast::Num(*n),
+            Ast::Var(v) => {
+                if v == name {
+                    replacement.clone()
+                } else {
+                    Ast::Var(v.clone())
+                }
+            }
+            Ast::BinOp(op, left, right) => Ast::BinOp(
+                *op,
+                Box::new(Self::substitute(left, name, replacement)),
+                Box::new(Self::substitute(right, name, replacement)),
+            ),
+            Ast::UnaryOp(op, inner) => {
+                Ast::UnaryOp(*op, Box::new(Self::substitute(inner, name, replacement)))
+            }
+            #[cfg(feature = "func")]
+            Ast::Call(func_name, args) => Ast::Call(
+                func_name.clone(),
+                args.iter()
+                    .map(|a| Self::substitute(a, name, replacement))
+                    .collect(),
+            ),
+            #[cfg(feature = "cond")]
+            Ast::Compare(op, left, right) => Ast::Compare(
+                *op,
+                Box::new(Self::substitute(left, name, replacement)),
+                Box::new(Self::substitute(right, name, replacement)),
+            ),
+            #[cfg(feature = "cond")]
+            Ast::And(left, right) => Ast::And(
+                Box::new(Self::substitute(left, name, replacement)),
+                Box::new(Self::substitute(right, name, replacement)),
+            ),
+            #[cfg(feature = "cond")]
+            Ast::Or(left, right) => Ast::Or(
+                Box::new(Self::substitute(left, name, replacement)),
+                Box::new(Self::substitute(right, name, replacement)),
+            ),
+            #[cfg(feature = "cond")]
+            Ast::If(cond, then_expr, else_expr) => Ast::If(
+                Box::new(Self::substitute(cond, name, replacement)),
+                Box::new(Self::substitute(then_expr, name, replacement)),
+                Box::new(Self::substitute(else_expr, name, replacement)),
+            ),
+            Ast::Let {
+                name: bound,
+                value,
+                body,
+            } => {
+                let new_value = Self::substitute(value, name, replacement);
+                // If this let shadows the name, don't substitute in body
+                if bound == name {
+                    Ast::Let {
+                        name: bound.clone(),
+                        value: Box::new(new_value),
+                        body: body.clone(),
+                    }
+                } else {
+                    Ast::Let {
+                        name: bound.clone(),
+                        value: Box::new(new_value),
+                        body: Box::new(Self::substitute(body, name, replacement)),
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl Pass for LetInlining {
+    fn transform(&self, ast: &Ast) -> Option<Ast> {
+        if let Ast::Let { name, value, body } = ast {
+            let uses = Self::count_uses(body, name);
+
+            // Always inline if unused
+            if uses == 0 {
+                return Some(body.as_ref().clone());
+            }
+
+            // Inline trivial values (cheap to duplicate)
+            if matches!(value.as_ref(), Ast::Num(_) | Ast::Var(_)) {
+                return Some(Self::substitute(body, name, value));
+            }
+
+            // Inline if used exactly once (no duplication of work)
+            if uses == 1 {
+                return Some(Self::substitute(body, name, value));
+            }
+
+            // Keep the let: multiple uses of non-trivial expression
+            // WGSL/GLSL codegen will fail for these - that's intentional
+        }
+        None
+    }
+}
+
+// ============================================================================
 // FunctionDecomposition pass (requires func feature)
 // ============================================================================
 
@@ -847,6 +1018,52 @@ mod tests {
     fn test_nested_identity() {
         // (x + 0) * 1 → x
         assert_eq!(optimized("(x + 0) * 1"), "x");
+    }
+
+    // Let inlining tests
+    #[test]
+    fn test_let_inline_literal() {
+        // let a = 3; a * 2 → 3 * 2 → 6
+        assert_eq!(optimized("let a = 3; a * 2"), "6");
+    }
+
+    #[test]
+    fn test_let_inline_variable() {
+        // let a = x; a + y → x + y
+        assert_eq!(optimized("let a = x; a + y"), "(x + y)");
+    }
+
+    #[test]
+    fn test_let_inline_unused() {
+        // let a = 42; x → x (unused binding eliminated)
+        assert_eq!(optimized("let a = 42; x"), "x");
+    }
+
+    #[test]
+    fn test_let_inline_chained() {
+        // let a = 1; let b = 2; a + b → 1 + 2 → 3
+        assert_eq!(optimized("let a = 1; let b = 2; a + b"), "3");
+    }
+
+    #[test]
+    fn test_let_inline_nested_fold() {
+        // let a = 1 + 2; a * 2 → let a = 3; a * 2 → 3 * 2 → 6
+        assert_eq!(optimized("let a = 1 + 2; a * 2"), "6");
+    }
+
+    #[test]
+    fn test_let_inline_multi_use_trivial() {
+        // let a = x; a + a → x + x (trivial value, safe to duplicate)
+        assert_eq!(optimized("let a = x; a + a"), "(x + x)");
+    }
+
+    #[test]
+    fn test_let_keep_multi_use_complex() {
+        // let a = x + y; a + a → kept (non-trivial, would duplicate work)
+        assert_eq!(
+            optimized("let a = x + y; a * a"),
+            "(let a = (x + y); (a * a))"
+        );
     }
 
     // AstHasher tests

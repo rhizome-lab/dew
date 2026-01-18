@@ -123,9 +123,30 @@ enum WgslFunc {
 // Code generation
 // ============================================================================
 
+/// Result of emitting code: accumulated statements + final expression.
+struct Emission {
+    statements: Vec<String>,
+    expr: String,
+}
+
+impl Emission {
+    fn expr_only(expr: String) -> Self {
+        Self {
+            statements: vec![],
+            expr,
+        }
+    }
+
+    fn with_statements(statements: Vec<String>, expr: String) -> Self {
+        Self { statements, expr }
+    }
+}
+
 /// Emit WGSL code for an AST.
 pub fn emit_wgsl(ast: &Ast) -> Result<WgslExpr, WgslError> {
-    Ok(WgslExpr::new(emit(ast)?))
+    let emission = emit_full(ast)?;
+    // For expression-only output, statements are lost (use emit_wgsl_fn for full support)
+    Ok(WgslExpr::new(emission.expr))
 }
 
 /// Generate a complete WGSL function.
@@ -136,13 +157,48 @@ pub fn emit_wgsl_fn(name: &str, ast: &Ast, params: &[&str]) -> Result<String, Wg
         .collect::<Vec<_>>()
         .join(", ");
 
-    let body = emit(ast)?;
+    let emission = emit_full(ast)?;
+
+    let mut body = String::new();
+    for stmt in &emission.statements {
+        body.push_str("    ");
+        body.push_str(stmt);
+        body.push('\n');
+    }
+    body.push_str("    return ");
+    body.push_str(&emission.expr);
+    body.push(';');
+
     Ok(format!(
-        "fn {}({}) -> f32 {{\n    return {};\n}}",
+        "fn {}({}) -> f32 {{\n{}\n}}",
         name, param_list, body
     ))
 }
 
+/// Emit with full statement support.
+fn emit_full(ast: &Ast) -> Result<Emission, WgslError> {
+    match ast {
+        Ast::Let { name, value, body } => {
+            let value_emission = emit_full(value)?;
+            let mut body_emission = emit_full(body)?;
+
+            // Collect value's statements + the let statement
+            let mut statements = value_emission.statements;
+            statements.push(format!("let {} = {};", name, value_emission.expr));
+
+            // Prepend to body's statements
+            statements.append(&mut body_emission.statements);
+
+            Ok(Emission::with_statements(statements, body_emission.expr))
+        }
+        _ => {
+            // For non-let nodes, delegate to simple emit
+            Ok(Emission::expr_only(emit(ast)?))
+        }
+    }
+}
+
+/// Simple emit for expression-only nodes (no statements).
 fn emit(ast: &Ast) -> Result<String, WgslError> {
     match ast {
         Ast::Num(n) => Ok(format_float(*n)),
@@ -238,11 +294,17 @@ fn emit(ast: &Ast) -> Result<String, WgslError> {
             })
         }
         Ast::Let { .. } => {
-            // WGSL uses statement-based let, not expression-based.
-            // Use the optimizer to inline let bindings before WGSL codegen.
-            Err(WgslError::UnsupportedFeature(
-                "let expressions (use optimizer to inline)".to_string(),
-            ))
+            // Let in expression context: delegate to emit_full
+            let emission = emit_full(ast)?;
+            if emission.statements.is_empty() {
+                Ok(emission.expr)
+            } else {
+                // Can't inline statements into expression position
+                // This happens with let inside other expressions: sin(let x = 1; x)
+                Err(WgslError::UnsupportedFeature(
+                    "let in expression position (use emit_wgsl_fn for full support)".to_string(),
+                ))
+            }
         }
     }
 }
@@ -408,5 +470,22 @@ mod tests {
     fn test_not() {
         let code = compile("not x");
         assert!(code.contains("!"));
+    }
+
+    #[test]
+    fn test_let_in_fn() {
+        let expr = Expr::parse("let t = x * 2; t + t").unwrap();
+        let code = emit_wgsl_fn("double_add", expr.ast(), &["x"]).unwrap();
+        assert!(code.contains("let t = x * 2.0;"));
+        assert!(code.contains("return t + t;"));
+    }
+
+    #[test]
+    fn test_nested_let() {
+        let expr = Expr::parse("let a = x; let b = a * 2; b + 1").unwrap();
+        let code = emit_wgsl_fn("nested", expr.ast(), &["x"]).unwrap();
+        assert!(code.contains("let a = x;"));
+        assert!(code.contains("let b = a * 2.0;"));
+        assert!(code.contains("return b + 1.0;"));
     }
 }

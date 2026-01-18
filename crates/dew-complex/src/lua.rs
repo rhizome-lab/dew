@@ -152,6 +152,24 @@ pub fn emit_lua(ast: &Ast, var_types: &HashMap<String, Type>) -> Result<LuaExpr,
                 .collect::<Result<_, _>>()?;
             emit_function_call(name, arg_exprs)
         }
+
+        Ast::Let { name, value, body } => {
+            // Emit value expression
+            let value_expr = emit_lua(value, var_types)?;
+            // Extend var_types with the new binding for body
+            let mut new_var_types = var_types.clone();
+            new_var_types.insert(name.clone(), value_expr.typ);
+            // Emit body with extended environment
+            let body_expr = emit_lua(body, &new_var_types)?;
+            // Use IIFE pattern: (function() local name = value; return body end)()
+            Ok(LuaExpr {
+                code: format!(
+                    "(function() local {} = {}; return {} end)()",
+                    name, value_expr.code, body_expr.code
+                ),
+                typ: body_expr.typ,
+            })
+        }
     }
 }
 

@@ -20,6 +20,8 @@ pub enum GlslError {
     UnsupportedType(Type),
     /// Conditionals require scalar types.
     UnsupportedTypeForConditional(Type),
+    /// Feature not supported in expression-only codegen.
+    UnsupportedFeature(String),
 }
 
 impl std::fmt::Display for GlslError {
@@ -33,6 +35,9 @@ impl std::fmt::Display for GlslError {
             GlslError::UnsupportedType(t) => write!(f, "unsupported type: {t}"),
             GlslError::UnsupportedTypeForConditional(t) => {
                 write!(f, "conditionals require scalar type, got {t}")
+            }
+            GlslError::UnsupportedFeature(feat) => {
+                write!(f, "unsupported feature in expression codegen: {feat}")
             }
         }
     }
@@ -218,6 +223,14 @@ pub fn emit_glsl_with(
                 code: cond::emit_if(&cond_bool, &then_expr.code, &else_expr.code),
                 typ: then_expr.typ,
             })
+        }
+
+        Ast::Let { .. } => {
+            // Let bindings require statement-based codegen.
+            // Use the LetInlining optimization pass before emitting.
+            Err(GlslError::UnsupportedFeature(
+                "let bindings (use LetInlining pass first)".to_string(),
+            ))
         }
     }
 }

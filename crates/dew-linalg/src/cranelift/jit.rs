@@ -925,6 +925,16 @@ fn compile_ast(
         Ast::And(_, _) => Err(CraneliftError::UnsupportedConditional("And")),
         Ast::Or(_, _) => Err(CraneliftError::UnsupportedConditional("Or")),
         Ast::If(_, _, _) => Err(CraneliftError::UnsupportedConditional("If")),
+
+        Ast::Let { name, value, body } => {
+            // Compile the value expression
+            let value_val = compile_ast(value, builder, vars, math)?;
+            // Extend vars with the new binding
+            let mut new_vars = vars.clone();
+            new_vars.insert(name.clone(), value_val);
+            // Compile the body with extended environment
+            compile_ast(body, builder, &new_vars, math)
+        }
     }
 }
 
