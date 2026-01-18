@@ -9,11 +9,23 @@ license = "MIT"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = ["console_error_panic_hook"]
+default = ["console_error_panic_hook", "core"]
+
+# Module profiles
+core = ["rhizome-dew-scalar"]
+linalg = ["core", "rhizome-dew-linalg"]
+graphics = ["linalg", "rhizome-dew-quaternion"]
+signal = ["core", "rhizome-dew-complex"]
+full = ["core", "rhizome-dew-linalg", "rhizome-dew-complex", "rhizome-dew-quaternion"]
 
 [dependencies]
 rhizome-dew-core = { path = "../dew-core", features = ["cond", "func"] }
-rhizome-dew-scalar = { path = "../dew-scalar", features = ["wgsl", "glsl", "lua-codegen"] }
+
+# Optional domain crates
+rhizome-dew-scalar = { path = "../dew-scalar", features = ["wgsl", "glsl", "lua-codegen"], optional = true }
+rhizome-dew-linalg = { path = "../dew-linalg", features = ["wgsl", "glsl", "lua-codegen"], optional = true }
+rhizome-dew-complex = { path = "../dew-complex", features = ["wgsl", "glsl", "lua-codegen"], optional = true }
+rhizome-dew-quaternion = { path = "../dew-quaternion", features = ["wgsl", "glsl", "lua-codegen"], optional = true }
 
 wasm-bindgen = "0.2"
 serde = { version = "1.0", features = ["derive"] }

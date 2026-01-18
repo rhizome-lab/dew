@@ -81,7 +81,7 @@ pub mod wgsl;
 #[cfg(feature = "glsl")]
 pub mod glsl;
 
-#[cfg(feature = "lua")]
+#[cfg(feature = "lua-codegen")]
 pub mod lua;
 
 #[cfg(feature = "cranelift")]

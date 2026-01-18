@@ -771,7 +771,10 @@ name = "rhizome-dew-wasm"
 version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
+ "rhizome-dew-complex",
  "rhizome-dew-core",
+ "rhizome-dew-linalg",
+ "rhizome-dew-quaternion",
  "rhizome-dew-scalar",
  "serde",
  "serde-wasm-bindgen",

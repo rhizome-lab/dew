@@ -3,7 +3,7 @@
 //! Quaternions are represented as tables {x, y, z, w}.
 //! Vectors are tables {x, y, z}.
 
-use crate::{Type, Value};
+use crate::Type;
 use rhizome_dew_cond::lua as cond;
 use rhizome_dew_core::{Ast, BinOp, UnaryOp};
 use std::collections::HashMap;
