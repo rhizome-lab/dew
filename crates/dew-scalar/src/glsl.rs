@@ -14,12 +14,17 @@ use rhizome_dew_core::{Ast, BinOp, UnaryOp};
 pub enum GlslError {
     /// Unknown function.
     UnknownFunction(String),
+    /// Feature not supported in GLSL codegen.
+    UnsupportedFeature(String),
 }
 
 impl std::fmt::Display for GlslError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             GlslError::UnknownFunction(name) => write!(f, "unknown function: '{name}'"),
+            GlslError::UnsupportedFeature(feat) => {
+                write!(f, "unsupported feature in GLSL codegen: {feat}")
+            }
         }
     }
 }
@@ -249,6 +254,13 @@ fn emit(ast: &Ast) -> Result<String, GlslError> {
                     )
                 }
             })
+        }
+        Ast::Let { .. } => {
+            // GLSL uses statement-based variable declarations, not expression-based.
+            // Use the optimizer to inline let bindings before GLSL codegen.
+            Err(GlslError::UnsupportedFeature(
+                "let expressions (use optimizer to inline)".to_string(),
+            ))
         }
     }
 }

@@ -242,6 +242,15 @@ fn emit(ast: &Ast) -> Result<String, LuaError> {
 
             emit_func(name, &args_str).ok_or_else(|| LuaError::UnknownFunction(name.clone()))
         }
+        Ast::Let { name, value, body } => {
+            // Lua supports let bindings via IIFE: (function() local name = value; return body end)()
+            let val_str = emit(value)?;
+            let body_str = emit(body)?;
+            Ok(format!(
+                "(function() local {} = {}; return {} end)()",
+                name, val_str, body_str
+            ))
+        }
     }
 }
 

@@ -365,6 +365,13 @@ pub fn eval<T: Float>(
 
             Ok(func.call(&arg_vals))
         }
+
+        Ast::Let { name, value, body } => {
+            let val = eval(value, vars, funcs)?;
+            let mut new_vars = vars.clone();
+            new_vars.insert(name.clone(), val);
+            eval(body, &new_vars, funcs)
+        }
     }
 }
 
@@ -511,6 +518,13 @@ pub fn eval_int<T: PrimInt + NumCast>(
                 .collect::<Result<_, _>>()?;
 
             Ok(func.call(&arg_vals))
+        }
+
+        Ast::Let { name, value, body } => {
+            let val = eval_int(value, vars, funcs)?;
+            let mut new_vars = vars.clone();
+            new_vars.insert(name.clone(), val);
+            eval_int(body, &new_vars, funcs)
         }
     }
 }

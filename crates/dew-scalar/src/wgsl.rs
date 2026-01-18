@@ -14,12 +14,17 @@ use rhizome_dew_core::{Ast, BinOp, UnaryOp};
 pub enum WgslError {
     /// Unknown function.
     UnknownFunction(String),
+    /// Feature not supported in WGSL codegen.
+    UnsupportedFeature(String),
 }
 
 impl std::fmt::Display for WgslError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             WgslError::UnknownFunction(name) => write!(f, "unknown function: '{name}'"),
+            WgslError::UnsupportedFeature(feat) => {
+                write!(f, "unsupported feature in WGSL codegen: {feat}")
+            }
         }
     }
 }
@@ -231,6 +236,13 @@ fn emit(ast: &Ast) -> Result<String, WgslError> {
                     )
                 }
             })
+        }
+        Ast::Let { .. } => {
+            // WGSL uses statement-based let, not expression-based.
+            // Use the optimizer to inline let bindings before WGSL codegen.
+            Err(WgslError::UnsupportedFeature(
+                "let expressions (use optimizer to inline)".to_string(),
+            ))
         }
     }
 }

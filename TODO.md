@@ -10,6 +10,7 @@
 ### Core
 
 - [x] Define expression AST (functions, numeric values)
+- [x] Let bindings: `let name = value; body` for naming intermediate values
 
 Note: No type system in core. Core = syntax only, domains = semantics.
 Each domain crate handles its own types during eval/emit.

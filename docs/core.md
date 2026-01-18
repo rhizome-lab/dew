@@ -90,6 +90,38 @@ Group expressions for explicit precedence:
 -(a + b)
 ```
 
+### Let Bindings
+
+Local variable bindings for naming intermediate values:
+
+```
+let name = value; body
+```
+
+The bound variable is only visible in the body expression. Bindings can be chained:
+
+```
+let a = x * 2; let b = a + 1; b * b
+```
+
+Example:
+```rust
+use rhizome_dew_core::Expr;
+use std::collections::HashMap;
+
+let expr = Expr::parse("let t = x * 2 + 1; sin(t) * cos(t)").unwrap();
+let vars: HashMap<String, f32> = [("x".into(), 1.0)].into();
+// t is computed once and used twice
+```
+
+Let bindings:
+- Evaluate the value expression first
+- Bind the result to the name in scope
+- Evaluate and return the body expression
+- Support shadowing (inner bindings hide outer ones)
+
+**Backend note:** WGSL and GLSL backends do not support `let` expressions directly. Use the optimizer to inline let bindings before codegen. Lua and Cranelift fully support `let`.
+
 ## Conditionals (feature = "cond")
 
 Enable with `features = ["cond"]`:
@@ -175,6 +207,7 @@ pub enum Ast {
     Var(String),                        // Variable reference
     BinOp(BinOp, Box<Ast>, Box<Ast>),   // Binary operation
     UnaryOp(UnaryOp, Box<Ast>),         // Unary operation
+    Let { name, value, body },          // Local binding
 
     // With "cond" feature:
     Compare(CompareOp, Box<Ast>, Box<Ast>), // Comparison

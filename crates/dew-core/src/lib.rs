@@ -411,6 +411,10 @@ enum Token {
     Then,
     #[cfg(feature = "cond")]
     Else,
+    // Let bindings
+    Let,
+    Assign,
+    Semicolon,
     Eof,
 }
 
@@ -527,6 +531,10 @@ impl<'a> Lexer<'a> {
                 self.next_char();
                 Ok(Token::Comma)
             }
+            ';' => {
+                self.next_char();
+                Ok(Token::Semicolon)
+            }
             '<' => {
                 self.next_char();
                 if self.peek_char() == Some('<') {
@@ -565,14 +573,20 @@ impl<'a> Lexer<'a> {
                     Err(ParseError::UnexpectedChar('>'))
                 }
             }
-            #[cfg(feature = "cond")]
             '=' => {
                 self.next_char();
                 if self.peek_char() == Some('=') {
                     self.next_char();
-                    Ok(Token::Eq)
+                    #[cfg(feature = "cond")]
+                    {
+                        Ok(Token::Eq)
+                    }
+                    #[cfg(not(feature = "cond"))]
+                    {
+                        Err(ParseError::UnexpectedChar('='))
+                    }
                 } else {
-                    Err(ParseError::UnexpectedChar('='))
+                    Ok(Token::Assign)
                 }
             }
             #[cfg(feature = "cond")]
@@ -589,6 +603,9 @@ impl<'a> Lexer<'a> {
             'a'..='z' | 'A'..='Z' | '_' => {
                 let ident = self.read_ident();
                 // Check for keywords
+                if ident == "let" {
+                    return Ok(Token::Let);
+                }
                 #[cfg(feature = "cond")]
                 match ident.as_str() {
                     "and" => return Ok(Token::And),
@@ -661,6 +678,12 @@ pub enum Ast {
     /// Conditional: `if condition then then_expr else else_expr`.
     #[cfg(feature = "cond")]
     If(Box<Ast>, Box<Ast>, Box<Ast>),
+    /// Local binding: `let name = value; body`.
+    Let {
+        name: String,
+        value: Box<Ast>,
+        body: Box<Ast>,
+    },
 }
 
 /// Binary operators for arithmetic and bitwise operations.
@@ -780,6 +803,9 @@ impl std::fmt::Display for Ast {
             Ast::If(cond, then_expr, else_expr) => {
                 write!(f, "(if {} then {} else {})", cond, then_expr, else_expr)
             }
+            Ast::Let { name, value, body } => {
+                write!(f, "(let {} = {}; {})", name, value, body)
+            }
         }
     }
 }
@@ -893,6 +919,17 @@ impl Ast {
                 then_expr.collect_vars(vars);
                 else_expr.collect_vars(vars);
             }
+            Ast::Let { name, value, body } => {
+                // Variables in value are free (name is not bound there yet)
+                value.collect_vars(vars);
+                // Variables in body are free, except for the bound name
+                let mut body_vars = HashSet::new();
+                body.collect_vars(&mut body_vars);
+                body_vars.remove(name.as_str());
+                for v in body_vars {
+                    vars.insert(v);
+                }
+            }
         }
     }
 }
@@ -927,6 +964,7 @@ impl<'a> Parser<'a> {
     }
 
     // Precedence (low to high):
+    // 0. let bindings (lowest)
     // 1. if/then/else (cond feature)
     // 2. or (cond feature, keyword)
     // 3. and (cond feature, keyword)
@@ -941,6 +979,37 @@ impl<'a> Parser<'a> {
     // 12. primary
 
     fn parse_expr(&mut self) -> Result<Ast, ParseError> {
+        self.parse_let()
+    }
+
+    fn parse_let(&mut self) -> Result<Ast, ParseError> {
+        if self.current == Token::Let {
+            self.advance()?;
+            // Expect identifier
+            let name = match &self.current {
+                Token::Ident(s) => s.clone(),
+                _ => return Err(ParseError::UnexpectedToken(format!("{:?}", self.current))),
+            };
+            self.advance()?;
+            // Expect =
+            self.expect(Token::Assign)?;
+            // Parse value expression (at next precedence level, not including let)
+            let value = self.parse_non_let()?;
+            // Expect ;
+            self.expect(Token::Semicolon)?;
+            // Parse body (can be another let)
+            let body = self.parse_let()?;
+            Ok(Ast::Let {
+                name,
+                value: Box::new(value),
+                body: Box::new(body),
+            })
+        } else {
+            self.parse_non_let()
+        }
+    }
+
+    fn parse_non_let(&mut self) -> Result<Ast, ParseError> {
         #[cfg(feature = "cond")]
         {
             self.parse_if()
@@ -1433,6 +1502,12 @@ fn eval_ast(
 
             Ok(func.call(&arg_values))
         }
+        Ast::Let { name, value, body } => {
+            let val = eval_ast(value, vars, funcs)?;
+            let mut new_vars = vars.clone();
+            new_vars.insert(name.clone(), val);
+            eval_ast(body, &new_vars, funcs)
+        }
     }
 }
 
@@ -1517,6 +1592,12 @@ fn eval_ast(ast: &Ast, vars: &HashMap<String, f32>) -> Result<f32, EvalError> {
             } else {
                 eval_ast(else_expr, vars)
             }
+        }
+        Ast::Let { name, value, body } => {
+            let val = eval_ast(value, vars)?;
+            let mut new_vars = vars.clone();
+            new_vars.insert(name.clone(), val);
+            eval_ast(body, &new_vars)
         }
     }
 }
@@ -1906,6 +1987,61 @@ mod tests {
         assert!(vars.contains("y"));
     }
 
+    // Let binding tests
+    #[test]
+    fn test_let_simple() {
+        assert_eq!(eval("let a = 1; a", &[]), 1.0);
+    }
+
+    #[test]
+    fn test_let_with_computation() {
+        assert_eq!(eval("let a = 1 + 2; a * 2", &[]), 6.0);
+    }
+
+    #[test]
+    fn test_let_chained() {
+        assert_eq!(eval("let a = 1; let b = 2; a + b", &[]), 3.0);
+    }
+
+    #[test]
+    fn test_let_with_var() {
+        assert_eq!(eval("let a = x * 2; a + 1", &[("x", 5.0)]), 11.0);
+    }
+
+    #[test]
+    fn test_let_shadow() {
+        // Inner binding shadows outer variable
+        assert_eq!(eval("let x = 10; x + 1", &[("x", 5.0)]), 11.0);
+    }
+
+    #[test]
+    fn test_let_uses_outer_in_value() {
+        // The value expression uses the outer x, then binds to x
+        assert_eq!(eval("let x = x + 1; x", &[("x", 5.0)]), 6.0);
+    }
+
+    #[cfg(feature = "introspect")]
+    #[test]
+    fn test_free_vars_in_let() {
+        // let a = x; a + y -> free vars are x and y (not a)
+        let expr = Expr::parse("let a = x; a + y").unwrap();
+        let vars = expr.free_vars();
+        assert_eq!(vars.len(), 2);
+        assert!(vars.contains("x"));
+        assert!(vars.contains("y"));
+        assert!(!vars.contains("a"));
+    }
+
+    #[cfg(feature = "introspect")]
+    #[test]
+    fn test_free_vars_in_let_shadow() {
+        // let x = x + 1; x -> free var is x (from the value expression)
+        let expr = Expr::parse("let x = x + 1; x").unwrap();
+        let vars = expr.free_vars();
+        assert_eq!(vars.len(), 1);
+        assert!(vars.contains("x"));
+    }
+
     // AST Display / roundtrip tests
     #[test]
     fn test_ast_display_simple() {
@@ -1965,6 +2101,22 @@ mod tests {
             "not x",
             "if x then y else z",
             "if a > b then x else y",
+        ];
+        for case in cases {
+            let expr1 = Expr::parse(case).unwrap();
+            let stringified = expr1.ast().to_string();
+            let expr2 = Expr::parse(&stringified).unwrap();
+            let stringified2 = expr2.ast().to_string();
+            assert_eq!(stringified, stringified2, "Roundtrip failed for: {}", case);
+        }
+    }
+
+    #[test]
+    fn test_ast_roundtrip_let() {
+        let cases = [
+            "let a = 1; a",
+            "let a = 1; let b = 2; a + b",
+            "let x = y * 2; x + 1",
         ];
         for case in cases {
             let expr1 = Expr::parse(case).unwrap();

@@ -170,6 +170,11 @@ fn transform_children(ast: &Ast, passes: &[&dyn Pass]) -> Ast {
             Box::new(apply_passes_once(then_expr, passes)),
             Box::new(apply_passes_once(else_expr, passes)),
         ),
+        Ast::Let { name, value, body } => Ast::Let {
+            name: name.clone(),
+            value: Box::new(apply_passes_once(value, passes)),
+            body: Box::new(apply_passes_once(body, passes)),
+        },
     }
 }
 
@@ -686,6 +691,11 @@ impl AstHasher {
                 Self::hash_into(cond, hasher);
                 Self::hash_into(then_expr, hasher);
                 Self::hash_into(else_expr, hasher);
+            }
+            Ast::Let { name, value, body } => {
+                name.hash(hasher);
+                Self::hash_into(value, hasher);
+                Self::hash_into(body, hasher);
             }
         }
     }

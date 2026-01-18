@@ -493,6 +493,13 @@ where
 
             Ok(func.call(&arg_vals))
         }
+
+        Ast::Let { name, value, body } => {
+            let val = eval(value, vars, funcs)?;
+            let mut new_vars = vars.clone();
+            new_vars.insert(name.clone(), val);
+            eval(body, &new_vars, funcs)
+        }
     }
 }
 

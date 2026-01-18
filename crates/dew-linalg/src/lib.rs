@@ -600,6 +600,13 @@ where
                 None => Err(Error::UnsupportedTypeForConditional(cond_val.typ())),
             }
         }
+
+        Ast::Let { name, value, body } => {
+            let val = eval(value, vars, funcs)?;
+            let mut new_vars = vars.clone();
+            new_vars.insert(name.clone(), val);
+            eval(body, &new_vars, funcs)
+        }
     }
 }
 

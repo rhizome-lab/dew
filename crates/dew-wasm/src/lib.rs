@@ -116,6 +116,11 @@ fn ast_to_js(ast: &rhizome_dew_core::Ast) -> JsAstNode {
                 ast_to_js(else_branch),
             ]),
         },
+        Ast::Let { name, value, body } => JsAstNode {
+            node_type: "Let".to_string(),
+            value: Some(name.clone()),
+            children: Some(vec![ast_to_js(value), ast_to_js(body)]),
+        },
     }
 }
 
