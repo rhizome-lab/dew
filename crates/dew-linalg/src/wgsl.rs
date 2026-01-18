@@ -106,6 +106,31 @@ pub struct WgslExpr {
     pub typ: Type,
 }
 
+/// Result of emitting code with statement support.
+struct Emission {
+    statements: Vec<String>,
+    expr: String,
+    typ: Type,
+}
+
+impl Emission {
+    fn expr_only(expr: String, typ: Type) -> Self {
+        Self {
+            statements: vec![],
+            expr,
+            typ,
+        }
+    }
+
+    fn with_statements(statements: Vec<String>, expr: String, typ: Type) -> Self {
+        Self {
+            statements,
+            expr,
+            typ,
+        }
+    }
+}
+
 /// Format a numeric literal for WGSL.
 fn format_literal(n: f64, numeric: NumericType) -> String {
     match numeric {
@@ -227,11 +252,122 @@ pub fn emit_wgsl_with(
         }
 
         Ast::Let { .. } => {
-            // Let bindings require statement-based codegen.
-            // Use the LetInlining optimization pass before emitting.
-            Err(WgslError::UnsupportedFeature(
-                "let bindings (use LetInlining pass first)".to_string(),
+            // Let in expression context: delegate to emit_full
+            let emission = emit_full(ast, var_types, numeric)?;
+            if emission.statements.is_empty() {
+                Ok(WgslExpr {
+                    code: emission.expr,
+                    typ: emission.typ,
+                })
+            } else {
+                // Can't inline statements into expression position
+                Err(WgslError::UnsupportedFeature(
+                    "let in expression position (use emit_wgsl_fn for full support)".to_string(),
+                ))
+            }
+        }
+    }
+}
+
+/// Emit a complete WGSL function with let statement support.
+///
+/// This generates a function definition that can contain let statements,
+/// unlike `emit_wgsl` which only produces expressions.
+///
+/// # Example output
+/// ```wgsl
+/// fn my_func(pixel: vec3<f32>) -> vec3<f32> {
+///     let hsl = rgb_to_hsl(pixel);
+///     let shifted = vec3<f32>(hsl.x + 0.1, hsl.y * 1.2, hsl.z);
+///     return hsl_to_rgb(shifted);
+/// }
+/// ```
+pub fn emit_wgsl_fn(
+    name: &str,
+    ast: &Ast,
+    params: &[(&str, Type)],
+    return_type: Type,
+) -> Result<String, WgslError> {
+    emit_wgsl_fn_with(name, ast, params, return_type, NumericType::F32)
+}
+
+/// Emit a complete WGSL function with specified numeric type.
+pub fn emit_wgsl_fn_with(
+    name: &str,
+    ast: &Ast,
+    params: &[(&str, Type)],
+    return_type: Type,
+    numeric: NumericType,
+) -> Result<String, WgslError> {
+    let var_types: HashMap<String, Type> =
+        params.iter().map(|(n, t)| (n.to_string(), *t)).collect();
+
+    let emission = emit_full(ast, &var_types, numeric)?;
+
+    // Build parameter list
+    let param_list: Vec<String> = params
+        .iter()
+        .map(|(n, t)| format!("{}: {}", n, type_to_wgsl_with(*t, numeric)))
+        .collect();
+
+    // Build function body
+    let mut body = String::new();
+    for stmt in emission.statements {
+        body.push_str("    ");
+        body.push_str(&stmt);
+        body.push('\n');
+    }
+    body.push_str("    return ");
+    body.push_str(&emission.expr);
+    body.push(';');
+
+    Ok(format!(
+        "fn {}({}) -> {} {{\n{}\n}}",
+        name,
+        param_list.join(", "),
+        type_to_wgsl_with(return_type, numeric),
+        body
+    ))
+}
+
+/// Emit with full statement support for let bindings.
+fn emit_full(
+    ast: &Ast,
+    var_types: &HashMap<String, Type>,
+    numeric: NumericType,
+) -> Result<Emission, WgslError> {
+    match ast {
+        Ast::Let { name, value, body } => {
+            // Emit value expression
+            let value_emission = emit_full(value, var_types, numeric)?;
+
+            // Extend var_types with the new binding
+            let mut new_var_types = var_types.clone();
+            new_var_types.insert(name.clone(), value_emission.typ);
+
+            // Emit body with extended environment
+            let mut body_emission = emit_full(body, &new_var_types, numeric)?;
+
+            // Combine: value statements + let statement + body statements
+            let mut statements = value_emission.statements;
+            let type_str = type_to_wgsl_with(value_emission.typ, numeric);
+            statements.push(format!(
+                "let {}: {} = {};",
+                name, type_str, value_emission.expr
+            ));
+            statements.append(&mut body_emission.statements);
+
+            Ok(Emission::with_statements(
+                statements,
+                body_emission.expr,
+                body_emission.typ,
             ))
+        }
+
+        // All other nodes: delegate to emit_wgsl_with and wrap result
+        _ => {
+            let result = emit_wgsl_with(ast, var_types, numeric)?;
+            Ok(Emission::expr_only(result.code, result.typ))
         }
     }
 }
@@ -1008,5 +1144,24 @@ mod tests {
         let result = emit_int("a ^ b", &[("a", Type::Scalar), ("b", Type::Scalar)]).unwrap();
         // Integer pow casts through f32
         assert!(result.code.contains("i32(pow(f32("));
+    }
+
+    #[cfg(feature = "3d")]
+    #[test]
+    fn test_let_in_fn() {
+        let expr = Expr::parse("let hsl = v; vec3(x(hsl) + 0.1, y(hsl) * 1.2, z(hsl))").unwrap();
+        let code = emit_wgsl_fn("shift_hue", expr.ast(), &[("v", Type::Vec3)], Type::Vec3).unwrap();
+        assert!(code.contains("let hsl: vec3<f32> = v;"));
+        assert!(code.contains("return vec3<f32>"));
+    }
+
+    #[cfg(feature = "3d")]
+    #[test]
+    fn test_nested_let() {
+        let expr = Expr::parse("let a = v; let b = a * 2; b + a").unwrap();
+        let code = emit_wgsl_fn("nested", expr.ast(), &[("v", Type::Vec3)], Type::Vec3).unwrap();
+        assert!(code.contains("let a: vec3<f32> = v;"));
+        assert!(code.contains("let b: vec3<f32> = (a * 2"));
+        assert!(code.contains("return (b + a)"));
     }
 }
