@@ -10,13 +10,18 @@ default = []
 wgsl = []
 glsl = []
 rust = []  # Rust text codegen
+tokenstream = ["quote", "proc-macro2"]  # TokenStream codegen for proc-macros
 lua-codegen = []  # Pure Rust codegen, no native deps
 lua = ["lua-codegen"]  # Alias for consistency (no execution in dew-cond)
 cranelift = ["cranelift-codegen", "cranelift-frontend", "cranelift-jit", "cranelift-module"]
-all = ["wgsl", "glsl", "rust", "lua", "cranelift"]
+all = ["wgsl", "glsl", "rust", "tokenstream", "lua", "cranelift"]
 
 [dependencies]
 rhizome-dew-core = { workspace = true, features = ["cond"] }
+
+# TokenStream backend
+quote = { version = "1.0", optional = true }
+proc-macro2 = { version = "1.0", optional = true }
 
 # Cranelift backend
 cranelift-codegen = { version = "0.116", optional = true }

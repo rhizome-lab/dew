@@ -12,16 +12,21 @@ default = ["3d"]
 wgsl = ["rhizome-dew-cond/wgsl"]         # WGSL code generation
 glsl = ["rhizome-dew-cond/glsl"]         # GLSL code generation
 rust = ["rhizome-dew-cond/rust"]         # Rust text codegen
+tokenstream = ["rhizome-dew-cond/tokenstream", "quote", "proc-macro2"]  # TokenStream codegen for proc-macros
 lua-codegen = ["rhizome-dew-cond/lua-codegen"]  # Pure Rust codegen, WASM-compatible
 lua = ["lua-codegen", "mlua"]             # Full Lua with execution via mlua
 cranelift = ["cranelift-codegen", "cranelift-frontend", "cranelift-jit", "cranelift-module", "rhizome-dew-cond/cranelift"]
 optimize = ["rhizome-dew-core/optimize"]  # Expression optimization passes
-all = ["3d", "4d", "wgsl", "glsl", "rust", "lua", "cranelift"]
+all = ["3d", "4d", "wgsl", "glsl", "rust", "tokenstream", "lua", "cranelift"]
 
 [dependencies]
 rhizome-dew-core = { workspace = true, features = ["func"] }
 rhizome-dew-cond.workspace = true
 num-traits = "0.2"
+
+# TokenStream backend
+quote = { version = "1.0", optional = true }
+proc-macro2 = { version = "1.0", optional = true }
 
 # Optional backend dependencies
 mlua = { version = "0.10", features = ["luajit", "vendored"], optional = true }

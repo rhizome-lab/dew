@@ -90,6 +90,9 @@ pub mod glsl;
 #[cfg(feature = "rust")]
 pub mod rust;
 
+#[cfg(feature = "tokenstream")]
+pub mod tokenstream;
+
 #[cfg(feature = "lua-codegen")]
 pub mod lua;
 

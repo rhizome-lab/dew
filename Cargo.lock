@@ -738,6 +738,8 @@ dependencies = [
  "cranelift-module",
  "mlua",
  "num-traits",
+ "proc-macro2",
+ "quote",
  "rhizome-dew-cond",
  "rhizome-dew-core",
 ]
@@ -750,6 +752,8 @@ dependencies = [
  "cranelift-frontend",
  "cranelift-jit",
  "cranelift-module",
+ "proc-macro2",
+ "quote",
  "rhizome-dew-core",
 ]
 
@@ -771,6 +775,8 @@ dependencies = [
  "cranelift-module",
  "mlua",
  "num-traits",
+ "proc-macro2",
+ "quote",
  "rhizome-dew-cond",
  "rhizome-dew-core",
 ]
@@ -785,6 +791,8 @@ dependencies = [
  "cranelift-module",
  "mlua",
  "num-traits",
+ "proc-macro2",
+ "quote",
  "rhizome-dew-cond",
  "rhizome-dew-core",
 ]
@@ -799,6 +807,8 @@ dependencies = [
  "cranelift-module",
  "mlua",
  "num-traits",
+ "proc-macro2",
+ "quote",
  "rhizome-dew-cond",
  "rhizome-dew-core",
 ]
