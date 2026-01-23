@@ -51,6 +51,11 @@ export default withMermaid(
             items: [
               { text: 'WGSL', link: '/backends/wgsl' },
               { text: 'GLSL', link: '/backends/glsl' },
+              { text: 'OpenCL', link: '/backends/opencl' },
+              { text: 'CUDA', link: '/backends/cuda' },
+              { text: 'HIP', link: '/backends/hip' },
+              { text: 'Rust', link: '/backends/rust' },
+              { text: 'C', link: '/backends/c' },
               { text: 'Lua', link: '/backends/lua' },
               { text: 'Cranelift', link: '/backends/cranelift' },
             ]

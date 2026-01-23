@@ -20,7 +20,7 @@ dew-core               # Syntax only: AST, parsing
     +-- dew-quaternion # Quaternions: [x, y, z, w], Vec3
 ```
 
-All domain crates have WGSL, GLSL, Lua, and Cranelift backends (feature flags).
+All domain crates have multiple backends (feature flags): WGSL, GLSL, OpenCL, CUDA, HIP, Rust, C, Lua, and Cranelift.
 
 **Core = syntax only, domains = semantics.** Each domain crate has its own:
 - Value types and type system
@@ -83,6 +83,9 @@ Each domain crate includes multiple backends as optional features:
 |---------|---------|----------|
 | WGSL | `wgsl` | GPU shaders (WebGPU) |
 | GLSL | `glsl` | GPU shaders (OpenGL/Vulkan) |
+| OpenCL | `opencl` | GPU compute kernels (cross-platform) |
+| CUDA | `cuda` | GPU compute kernels (NVIDIA) |
+| HIP | `hip` | GPU compute kernels (AMD ROCm, source-compatible with CUDA) |
 | Rust | `rust` | Rust source code generation |
 | C | `c` | C source code generation |
 | TokenStream | `tokenstream` | Proc-macro code generation |

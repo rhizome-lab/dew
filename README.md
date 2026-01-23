@@ -20,9 +20,23 @@ Dew is a minimal expression language that compiles to multiple backends. Small, 
 | `rhizome-dew-quaternion` | Quaternions: rotation, slerp, axis-angle, etc. |
 
 Each domain crate includes self-contained backends (feature flags):
-- `wgsl`: WGSL shader code generation
-- `glsl`: GLSL shader code generation
-- `lua`: Lua code generation + mlua execution (split into `lua-codegen` for WASM compatibility)
+
+**GPU Shaders:**
+- `wgsl`: WGSL (WebGPU)
+- `glsl`: GLSL (OpenGL/Vulkan)
+
+**GPU Kernels:**
+- `opencl`: OpenCL (cross-platform GPU compute)
+- `cuda`: CUDA (NVIDIA GPUs)
+- `hip`: HIP (AMD ROCm, source-compatible with CUDA)
+
+**Text Codegen:**
+- `rust`: Rust source code
+- `c`: C source code (embeddable, uses math.h)
+- `tokenstream`: Rust TokenStream for proc-macros
+
+**JIT & Scripting:**
+- `lua`: Lua code generation + mlua execution (`lua-codegen` for WASM compatibility)
 - `cranelift`: Cranelift JIT native compilation
 
 ## Architecture
@@ -67,6 +81,12 @@ Domain crates are independent. Each has:
 **Code Generation:**
 - WGSL backend (all domain crates)
 - GLSL backend (all domain crates)
+- OpenCL backend (all domain crates)
+- CUDA backend (all domain crates)
+- HIP backend (all domain crates, source-compatible with CUDA)
+- Rust text backend (all domain crates)
+- C text backend (all domain crates)
+- TokenStream backend for proc-macros (all domain crates)
 - Lua backend with codegen + execution (all domain crates)
 - Cranelift JIT backend (all domain crates)
 
