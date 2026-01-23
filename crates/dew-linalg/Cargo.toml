@@ -11,11 +11,12 @@ default = ["3d"]
 4d = ["3d"]       # Vec4, Mat4 (implies 3d)
 wgsl = ["rhizome-dew-cond/wgsl"]         # WGSL code generation
 glsl = ["rhizome-dew-cond/glsl"]         # GLSL code generation
+rust = ["rhizome-dew-cond/rust"]         # Rust text codegen
 lua-codegen = ["rhizome-dew-cond/lua-codegen"]  # Pure Rust codegen, WASM-compatible
 lua = ["lua-codegen", "mlua"]             # Full Lua with execution via mlua
 cranelift = ["cranelift-codegen", "cranelift-frontend", "cranelift-jit", "cranelift-module", "rhizome-dew-cond/cranelift"]
 optimize = ["rhizome-dew-core/optimize"]  # Expression optimization passes
-all = ["3d", "4d", "wgsl", "glsl", "lua", "cranelift"]
+all = ["3d", "4d", "wgsl", "glsl", "rust", "lua", "cranelift"]
 
 [dependencies]
 rhizome-dew-core = { workspace = true, features = ["func"] }

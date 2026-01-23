@@ -25,6 +25,12 @@ glsl = [
     "rhizome-dew-complex?/glsl",
     "rhizome-dew-quaternion?/glsl",
 ]
+rust = [
+    "rhizome-dew-scalar?/rust",
+    "rhizome-dew-linalg?/rust",
+    "rhizome-dew-complex?/rust",
+    "rhizome-dew-quaternion?/rust",
+]
 lua = [
     "rhizome-dew-scalar?/lua",
     "rhizome-dew-linalg?/lua",

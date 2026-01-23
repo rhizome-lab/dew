@@ -9,11 +9,12 @@ description = "Complex number support for dew expressions"
 default = []
 wgsl = ["rhizome-dew-cond/wgsl"]
 glsl = ["rhizome-dew-cond/glsl"]
+rust = ["rhizome-dew-cond/rust"]  # Rust text codegen
 lua-codegen = ["rhizome-dew-cond/lua-codegen"]  # Pure Rust codegen, WASM-compatible
 lua = ["lua-codegen", "mlua"]                    # Full Lua with execution via mlua
 cranelift = ["cranelift-codegen", "cranelift-frontend", "cranelift-jit", "cranelift-module", "rhizome-dew-cond/cranelift"]
 optimize = ["rhizome-dew-core/optimize"]  # Expression optimization passes
-all = ["wgsl", "glsl", "lua", "cranelift"]
+all = ["wgsl", "glsl", "rust", "lua", "cranelift"]
 
 [dependencies]
 rhizome-dew-core = { workspace = true, features = ["func"] }

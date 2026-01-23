@@ -9,10 +9,11 @@ description = "Conditional and boolean support for dew expressions"
 default = []
 wgsl = []
 glsl = []
+rust = []  # Rust text codegen
 lua-codegen = []  # Pure Rust codegen, no native deps
 lua = ["lua-codegen"]  # Alias for consistency (no execution in dew-cond)
 cranelift = ["cranelift-codegen", "cranelift-frontend", "cranelift-jit", "cranelift-module"]
-all = ["wgsl", "glsl", "lua", "cranelift"]
+all = ["wgsl", "glsl", "rust", "lua", "cranelift"]
 
 [dependencies]
 rhizome-dew-core = { workspace = true, features = ["cond"] }

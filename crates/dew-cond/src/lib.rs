@@ -14,6 +14,8 @@
 //! dew-cond (backend helpers)
 //!     │
 //!     ├── wgsl::emit_compare, emit_if, ...
+//!     ├── glsl::emit_compare, emit_if, ...
+//!     ├── rust::emit_compare, emit_if, ...
 //!     ├── lua::emit_compare, emit_if, ...
 //!     └── cranelift::emit_compare, emit_if, ...
 //!     │
@@ -108,6 +110,9 @@ pub mod wgsl;
 
 #[cfg(feature = "glsl")]
 pub mod glsl;
+
+#[cfg(feature = "rust")]
+pub mod rust;
 
 #[cfg(any(feature = "lua", feature = "lua-codegen"))]
 pub mod lua;
