@@ -22,7 +22,7 @@ export default withMermaid(
         { text: 'Guide', link: '/introduction' },
         { text: 'Backends', link: '/backends/wgsl' },
         { text: 'Playground', link: '/playground/', target: '_self' },
-        { text: 'rhi', link: 'https://rhi-zone.github.io/' },
+        { text: 'rhi', link: 'https://docs.rhi.zone/' },
       ],
 
       sidebar: {
