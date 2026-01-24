@@ -36,4 +36,3 @@ playground/src/wasm/
 !.normalize/hotspots-allow
 !.normalize/large-files-allow
 !.normalize/memory/
-.moss/
