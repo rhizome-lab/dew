@@ -27,12 +27,12 @@ playground/src/wasm/
 *.swp
 *~
 
-# Moss
-.moss/*
-!.moss/config.toml
-!.moss/complexity-allow
-!.moss/duplicate-functions-allow
-!.moss/duplicate-types-allow
-!.moss/hotspots-allow
-!.moss/large-files-allow
-!.moss/memory/
+# Normalize
+.normalize/*
+!.normalize/config.toml
+!.normalize/complexity-allow
+!.normalize/duplicate-functions-allow
+!.normalize/duplicate-types-allow
+!.normalize/hotspots-allow
+!.normalize/large-files-allow
+!.normalize/memory/
