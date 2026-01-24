@@ -2,7 +2,7 @@
 
 Minimal expression language, multiple backends.
 
-Part of the [Rhizome](https://rhizome-lab.github.io) ecosystem.
+Part of the [rhi](https://rhi-zone.github.io) ecosystem.
 
 ## Overview
 

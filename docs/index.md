@@ -11,7 +11,7 @@ hero:
       link: /introduction
     - theme: alt
       text: View on GitHub
-      link: https://github.com/rhizome-lab/dew
+      link: https://github.com/rhi-zone/dew
 
 features:
   - title: Domain Crates

@@ -22,7 +22,7 @@ export default withMermaid(
         { text: 'Guide', link: '/introduction' },
         { text: 'Backends', link: '/backends/wgsl' },
         { text: 'Playground', link: '/playground/', target: '_self' },
-        { text: 'Rhizome', link: 'https://rhizome-lab.github.io/' },
+        { text: 'rhi', link: 'https://rhi-zone.github.io/' },
       ],
 
       sidebar: {
@@ -71,7 +71,7 @@ export default withMermaid(
       },
 
       socialLinks: [
-        { icon: 'github', link: 'https://github.com/rhizome-lab/dew' }
+        { icon: 'github', link: 'https://github.com/rhi-zone/dew' }
       ],
 
       search: {
@@ -79,7 +79,7 @@ export default withMermaid(
       },
 
       editLink: {
-        pattern: 'https://github.com/rhizome-lab/dew/edit/master/docs/:path',
+        pattern: 'https://github.com/rhi-zone/dew/edit/master/docs/:path',
         text: 'Edit this page on GitHub'
       },
     },

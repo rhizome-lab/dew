@@ -7,7 +7,7 @@ exclude = ["fuzz"]
 version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/rhizome-lab/dew"
+repository = "https://github.com/rhi-zone/dew"
 
 [workspace.dependencies]
 rhizome-dew-core = { path = "crates/dew-core" }

@@ -27,7 +27,7 @@ Add to your nvim-treesitter config:
 local parser_config = require("nvim-treesitter.parsers").get_parser_configs()
 parser_config.dew = {
   install_info = {
-    url = "https://github.com/rhizome-lab/dew",
+    url = "https://github.com/rhi-zone/dew",
     files = { "editors/tree-sitter-dew/src/parser.c" },
     location = "editors/tree-sitter-dew",
   },
@@ -51,7 +51,7 @@ comment-token = "//"
 
 [[grammar]]
 name = "dew"
-source = { git = "https://github.com/rhizome-lab/dew", subpath = "editors/tree-sitter-dew" }
+source = { git = "https://github.com/rhi-zone/dew", subpath = "editors/tree-sitter-dew" }
 ```
 
 ## Syntax

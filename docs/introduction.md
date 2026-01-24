@@ -2,7 +2,7 @@
 
 Dew is a minimal expression language that compiles to multiple backends. Parse once, emit to WGSL/GLSL (GPU shaders), Cranelift (native JIT), or Lua (scripting).
 
-Part of the [Rhizome](https://rhizome-lab.github.io) ecosystem.
+Part of the [rhi](https://rhi-zone.github.io) ecosystem.
 
 ## Architecture
 
